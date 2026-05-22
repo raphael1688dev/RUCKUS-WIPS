@@ -1,0 +1,13 @@
+{
+  "domain": "ruckus_wips",
+  "name": "RUCKUS WIPS",
+  "codeowners": ["@raphaelchen"],
+  "config_flow": true,
+  "documentation": "https://github.com/raphaelchen/RUCKUS-HACS",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/raphaelchen/RUCKUS-HACS/issues",
+  "requirements": ["aioruckus>=0.42"],
+  "version": "0.1.0",
+  "homeassistant": "2026.5.0"
+}

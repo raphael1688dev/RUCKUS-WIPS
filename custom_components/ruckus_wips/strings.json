@@ -1,0 +1,107 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to RUCKUS Unleashed",
+        "description": "Provide the address of the Unleashed master AP and an admin account.",
+        "data": {
+          "host": "Hostname or IP",
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate RUCKUS Unleashed",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the Unleashed controller.",
+      "invalid_auth": "Username or password is incorrect."
+    },
+    "abort": {
+      "already_configured": "This RUCKUS Unleashed controller is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "RUCKUS WIPS options",
+        "data": {
+          "scan_interval": "Poll interval (seconds)",
+          "rssi_threshold": "Minimum RSSI to report (0 = no filter)",
+          "ignore_known": "Hide rogues classified as Known",
+          "enable_unblock": "Expose unmark_malicious service (advanced)"
+        },
+        "data_description": {
+          "scan_interval": "Ruckus background scan runs about every 30 seconds, so values below 30 give no extra freshness.",
+          "rssi_threshold": "Filter out very weak detections. Ruckus RSSI is reported as a small positive number; higher = stronger.",
+          "enable_unblock": "When enabled, an unmark_malicious service is registered. Off by default to avoid accidental un-blocks."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "active_rogue_count": {
+        "name": "Active rogues"
+      },
+      "blocked_rogue_count": {
+        "name": "Blocked rogues"
+      },
+      "total_rogue_count": {
+        "name": "Total rogues"
+      }
+    },
+    "event": {
+      "new_rogue": {
+        "name": "New rogue detected",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new_rogue": "New rogue"
+            }
+          }
+        }
+      }
+    }
+  },
+  "services": {
+    "mark_malicious": {
+      "name": "Mark rogue as malicious",
+      "description": "Tells Unleashed to broadcast deauth for the given BSSID, blocking clients from associating to it.",
+      "fields": {
+        "bssid": {
+          "name": "BSSID",
+          "description": "MAC address of the rogue access point."
+        },
+        "entry_id": {
+          "name": "Controller",
+          "description": "Which configured Unleashed controller to target (required when more than one is set up)."
+        }
+      }
+    },
+    "unmark_malicious": {
+      "name": "Unmark rogue as malicious",
+      "description": "Reverses a previous mark_malicious so deauth broadcasts stop.",
+      "fields": {
+        "bssid": {
+          "name": "BSSID",
+          "description": "MAC address of the rogue access point."
+        },
+        "entry_id": {
+          "name": "Controller",
+          "description": "Which configured Unleashed controller to target (required when more than one is set up)."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_bssid": {
+      "message": "{bssid} is not a valid MAC address."
+    }
+  }
+}

@@ -1,0 +1,27 @@
+mark_malicious:
+  fields:
+    bssid:
+      required: true
+      example: "fc:ee:e6:45:c4:6b"
+      selector:
+        text:
+    entry_id:
+      required: false
+      example: "01J8B3FA9X1QGZ..."
+      selector:
+        config_entry:
+          integration: ruckus_wips
+
+unmark_malicious:
+  fields:
+    bssid:
+      required: true
+      example: "fc:ee:e6:45:c4:6b"
+      selector:
+        text:
+    entry_id:
+      required: false
+      example: "01J8B3FA9X1QGZ..."
+      selector:
+        config_entry:
+          integration: ruckus_wips
