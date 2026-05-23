@@ -22,6 +22,9 @@ DEFAULT_IGNORE_KNOWN: Final = True
 EVENT_NEW_ROGUE: Final = "new_rogue"
 EVENT_ROGUE_BLOCKED: Final = "rogue_blocked"
 
+# HA bus event names (fired alongside the EventEntity triggers).
+BUS_EVENT_NEW_ROGUE: Final = f"{DOMAIN}_new_rogue"
+
 SERVICE_MARK_MALICIOUS: Final = "mark_malicious"
 SERVICE_UNMARK_MALICIOUS: Final = "unmark_malicious"
 

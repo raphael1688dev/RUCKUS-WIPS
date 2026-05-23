@@ -16,6 +16,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    BUS_EVENT_NEW_ROGUE,
     CONF_IGNORE_KNOWN,
     CONF_RSSI_THRESHOLD,
     CONF_SCAN_INTERVAL,
@@ -197,7 +198,7 @@ class RuckusWipsCoordinator(DataUpdateCoordinator[RuckusWipsSnapshot]):
         return snapshot
 
     async def _dispatch_new_rogues(self, rogues: dict[str, Rogue]) -> None:
-        """Fire callbacks for BSSIDs we haven't observed before in this session."""
+        """Fire callbacks AND bus events for BSSIDs we haven't observed before."""
         if not self._seen_bssids:
             # First poll: seed without firing — avoid burying the user in alerts on restart.
             self._seen_bssids.update(rogues)
@@ -207,5 +208,22 @@ class RuckusWipsCoordinator(DataUpdateCoordinator[RuckusWipsSnapshot]):
             if bssid in self._seen_bssids:
                 continue
             self._seen_bssids.add(bssid)
+            event_data = {
+                "bssid": rogue.bssid,
+                "ssid": rogue.ssid,
+                "channel": rogue.channel,
+                "radio_band": rogue.radio_band,
+                "radio_type": rogue.radio_type,
+                "encryption": rogue.encryption,
+                "rogue_type": rogue.rogue_type,
+                "rssi": rogue.rssi,
+                "detection_ap": rogue.detection_ap_name,
+                "detection_ap_location": rogue.detection_ap_location,
+                "blocked": rogue.blocked,
+                "last_seen": rogue.last_seen,
+            }
+            # HA bus event — visible in Developer Tools → Events, picked up by
+            # the Logbook describer, and usable as `event:` automation trigger.
+            self.hass.bus.async_fire(BUS_EVENT_NEW_ROGUE, event_data)
             for cb in list(self._new_rogue_listeners):
                 cb(rogue)
