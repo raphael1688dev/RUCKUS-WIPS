@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from homeassistant.components.event import EventDeviceClass, EventEntity
+from homeassistant.components.event import EventEntity
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -26,7 +26,9 @@ class RuckusWipsRogueEvent(EventEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "new_rogue"
     _attr_event_types = [EVENT_NEW_ROGUE]
-    _attr_device_class = EventDeviceClass.DOORBELL  # closest semantic — "something arrived"
+    # No device_class — none of HA's built-in event device classes fit
+    # "rogue AP detected" semantically. DOORBELL specifically requires a
+    # 'ring' event type since HA 2026.5; we'd hit a deprecation warning.
     _attr_should_poll = False
 
     def __init__(
