@@ -120,9 +120,9 @@ sticky — renaming the entity_id afterwards (even with a full HA restart)
 will NOT update the service name. With this ASCII alias both the entity_id
 and the service become `script.ruckus_block_typed_bssid`.
 
-After saving you can change the **Name** to whatever you want (e.g.
-`Ruckus 封鎖貼上的 BSSID`) — the Name is display-only and doesn't affect
-the underlying entity_id or service.
+After saving you can change the **Name** to anything you want — including
+non-ASCII text in your own locale (the Name is display-only and doesn't
+affect the underlying entity_id or service).
 
 ### 3. Add the dashboard card
 
@@ -133,28 +133,28 @@ type: vertical-stack
 cards:
   - type: markdown
     content: |
-      ## 目前未封鎖的 Rogue AP
+      ## Active rogue APs
       {% set rogues = state_attr('sensor.ruckus_unleashed_active_rogues', 'rogues') or [] %}
       {% if rogues %}
       {% for r in rogues %}
-      - **{{ r.ssid or '(隱藏 SSID)' }}** `{{ r.bssid }}`
-        — ch{{ r.channel }} / rssi {{ r.rssi }} / 偵測者 {{ r.detection_ap }} ({{ r.detection_ap_location }})
+      - **{{ r.ssid or '(hidden SSID)' }}** `{{ r.bssid }}`
+        — ch{{ r.channel }} / rssi {{ r.rssi }} / seen by {{ r.detection_ap }} ({{ r.detection_ap_location }})
       {% endfor %}
       {% else %}
-      ✓ 目前沒有未處理的 rogue AP
+      ✓ No untreated rogue APs
       {% endif %}
 
   - type: entities
-    title: 執行封鎖
+    title: Block action
     show_header_toggle: false
     entities:
       - entity: input_text.ruckus_block_bssid
-        name: 貼上 BSSID
+        name: Paste BSSID
         icon: mdi:identifier
       - type: button
-        name: 對上方 BSSID 執行封鎖
+        name: Block the BSSID above
         icon: mdi:wifi-cancel
-        action_name: 封鎖
+        action_name: Block
         tap_action:
           action: perform-action
           perform_action: script.ruckus_block_typed_bssid
@@ -164,9 +164,9 @@ Replace `sensor.ruckus_unleashed_active_rogues` if your hub device name
 differs (check **Developer Tools → States** and search `sensor.ruckus`).
 
 **Usage:** copy a BSSID from the top markdown list → paste into the input
-field → press **封鎖**. The script validates the format, calls the service,
-and clears the input. ~30 seconds later (next coordinator poll) the rogue
-moves to the blocked list and disappears from the top card.
+field → press **Block**. The script validates the format, calls the
+service, and clears the input. ~30 seconds later (next coordinator poll)
+the rogue moves to the blocked list and disappears from the top card.
 
 ### Optional — also show blocked list with an unblock button
 
@@ -204,7 +204,7 @@ Two trigger styles are available — pick whichever feels natural:
 
 ```yaml
 alias: Ruckus Notify New Rogue
-description: 偵測到新 rogue AP 時在 HA 鈴鐺顯示通知
+description: Show a HA bell notification when a new rogue AP is detected
 mode: queued
 max: 10
 triggers:
@@ -214,15 +214,15 @@ actions:
   - action: persistent_notification.create
     data:
       title: >
-        ⚠️ 偵測到新 Rogue AP
-        {%- if trigger.event.data.encryption | lower == 'open' %} (開放式!){% endif %}
+        ⚠️ New rogue AP detected
+        {%- if trigger.event.data.encryption | lower == 'open' %} (open!){% endif %}
       message: |
-        **{{ trigger.event.data.ssid or '(隱藏 SSID)' }}**
+        **{{ trigger.event.data.ssid or '(hidden SSID)' }}**
         BSSID: `{{ trigger.event.data.bssid }}`
         Ch{{ trigger.event.data.channel }} ({{ trigger.event.data.radio_band }}) / RSSI {{ trigger.event.data.rssi }}
-        加密: {{ trigger.event.data.encryption }}
-        偵測者: {{ trigger.event.data.detection_ap }} ({{ trigger.event.data.detection_ap_location }})
-        類型: {{ trigger.event.data.rogue_type }}
+        Encryption: {{ trigger.event.data.encryption }}
+        Seen by: {{ trigger.event.data.detection_ap }} ({{ trigger.event.data.detection_ap_location }})
+        Type: {{ trigger.event.data.rogue_type }}
       notification_id: "ruckus_rogue_{{ trigger.event.data.bssid }}"
 ```
 
@@ -244,29 +244,29 @@ actions:
   - action: notify.mobile_app_my_phone   # ← change to your notify service
     data:
       title: >
-        ⚠️ 新 Rogue AP
-        {%- if trigger.event.data.encryption | lower == 'open' %} (開放){% endif %}
+        ⚠️ New Rogue AP
+        {%- if trigger.event.data.encryption | lower == 'open' %} (open){% endif %}
       message: >
-        {{ trigger.event.data.ssid or '(隱藏)' }} {{ trigger.event.data.bssid }}
+        {{ trigger.event.data.ssid or '(hidden)' }} {{ trigger.event.data.bssid }}
         @ {{ trigger.event.data.detection_ap_location }} (rssi {{ trigger.event.data.rssi }})
       data:
         tag: "ruckus_rogue_{{ trigger.event.data.bssid }}"
         group: "ruckus_wips"
         actions:
           - action: "URI"
-            title: "開 HA Dashboard"
+            title: "Open HA Dashboard"
             uri: "/lovelace/ruckus"
 ```
 
-### Push to mobile with a one-tap "封鎖" action
+### Push to mobile with a one-tap "Block" action
 
 Home Assistant Companion (iOS / Android) supports inline action buttons on
 push notifications. This pair of automations lets you block a rogue
 straight from the notification — no app open, no copy/paste.
 
 **A. Sender** — fires when a new rogue appears, sends a push with two
-buttons (封鎖 / 略過). The BSSID is encoded into the notification's `tag`
-so the handler can recover it later.
+buttons (Block / Ignore). The BSSID is encoded into the notification's
+`tag` so the handler can recover it later.
 
 ```yaml
 alias: Ruckus Push w/ Actions
@@ -279,24 +279,24 @@ actions:
   - action: notify.mobile_app_my_phone   # ← change to your service
     data:
       title: >
-        ⚠️ 新 Rogue AP
-        {%- if trigger.event.data.encryption | lower == 'open' %} (開放){% endif %}
+        ⚠️ New Rogue AP
+        {%- if trigger.event.data.encryption | lower == 'open' %} (open){% endif %}
       message: >
-        {{ trigger.event.data.ssid or '(隱藏)' }} {{ trigger.event.data.bssid }}
+        {{ trigger.event.data.ssid or '(hidden)' }} {{ trigger.event.data.bssid }}
         @ {{ trigger.event.data.detection_ap_location }} (rssi {{ trigger.event.data.rssi }})
       data:
         tag: "ruckus_rogue_{{ trigger.event.data.bssid }}"
         group: "ruckus_wips"
         actions:
           - action: "RUCKUS_BLOCK"
-            title: "封鎖此 BSSID"
+            title: "Block this BSSID"
             destructive: true
             icon: "sfsymbols:wifi.slash"
           - action: "RUCKUS_IGNORE"
-            title: "略過"
+            title: "Ignore"
 ```
 
-**B. Handler** — fires when the user taps **封鎖** on the push. It parses
+**B. Handler** — fires when the user taps **Block** on the push. It parses
 the BSSID out of the notification tag, validates the format, and calls
 `ruckus_wips.mark_malicious`. A confirmation push is sent back.
 
@@ -318,7 +318,7 @@ actions:
       bssid: "{{ bssid }}"
   - action: notify.mobile_app_my_phone   # ← same as Sender
     data:
-      message: "✓ 已封鎖 {{ bssid }}"
+      message: "✓ Blocked {{ bssid }}"
       data:
         tag: "ruckus_blocked_{{ bssid }}"
 ```
@@ -365,10 +365,10 @@ actions:
       bssid: "{{ trigger.event.data.bssid }}"
   - action: persistent_notification.create
     data:
-      title: 🛡️ 已自動封鎖開放式 Rogue
+      title: 🛡️ Auto-blocked open rogue
       message: >
-        {{ trigger.event.data.ssid or '(隱藏)' }} `{{ trigger.event.data.bssid }}`
-        被偵測到後立即標為 malicious。
+        {{ trigger.event.data.ssid or '(hidden)' }} `{{ trigger.event.data.bssid }}`
+        was detected and immediately marked malicious.
       notification_id: "ruckus_auto_block_{{ trigger.event.data.bssid }}"
 ```
 
@@ -383,7 +383,7 @@ HA 2026.3+ serves the bundled logo from
    "icon not available" placeholder aggressively.
 3. Verify all 8 PNGs exist in the `brand/` folder.
 
-### Dashboard "封鎖" button errors with `Action script.<name> not found`
+### Dashboard "Block" button errors with `Action script.<name> not found`
 
 HA's UI-created scripts have two parallel identifiers — an *entity_id* (the
 display name) and a *service name* (what `tap_action: perform_action` calls).
