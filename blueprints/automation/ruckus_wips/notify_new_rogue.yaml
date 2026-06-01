@@ -1,0 +1,62 @@
+blueprint:
+  name: RUCKUS WIPS — Notify on new rogue AP
+  description: |
+    Fires a notification whenever a previously-unseen rogue AP is detected.
+
+    The notification target is configurable — defaults to the built-in HA
+    bell (`persistent_notification.create`); you can swap in
+    `notify.mobile_app_<device>` for a push.
+
+    Optional filter: only notify when the rogue is on open (unencrypted)
+    Wi-Fi — the highest-risk class of rogue.
+  domain: automation
+  source_url: https://github.com/raphael1688dev/RUCKUS-WIPS/blob/main/blueprints/automation/ruckus_wips/notify_new_rogue.yaml
+  input:
+    notify_service:
+      name: Notification service
+      description: >
+        Service to call. Default: HA bell. For mobile push, use e.g.
+        `notify.mobile_app_my_phone`.
+      default: persistent_notification.create
+      selector:
+        text:
+    only_open_encryption:
+      name: Only open-encryption rogues
+      description: When enabled, ignore rogues that use any form of encryption.
+      default: false
+      selector:
+        boolean:
+
+mode: queued
+max: 10
+
+triggers:
+  - platform: event
+    event_type: ruckus_wips_new_rogue
+
+conditions:
+  - condition: template
+    value_template: >
+      {% if only_open_encryption %}
+        {{ trigger.event.data.encryption | lower == 'open' }}
+      {% else %}
+        true
+      {% endif %}
+
+variables:
+  only_open_encryption: !input only_open_encryption
+
+actions:
+  - action: !input notify_service
+    data:
+      title: >
+        ⚠️ New rogue AP detected
+        {%- if trigger.event.data.encryption | lower == 'open' %} (open!){% endif %}
+      message: |
+        **{{ trigger.event.data.ssid or '(hidden SSID)' }}**
+        BSSID: `{{ trigger.event.data.bssid }}`
+        Ch{{ trigger.event.data.channel }} ({{ trigger.event.data.radio_band }}) / RSSI {{ trigger.event.data.rssi }}
+        Encryption: {{ trigger.event.data.encryption }}
+        Seen by: {{ trigger.event.data.detection_ap }} ({{ trigger.event.data.detection_ap_location }})
+        Type: {{ trigger.event.data.rogue_type }}
+      notification_id: "ruckus_rogue_{{ trigger.event.data.bssid }}"

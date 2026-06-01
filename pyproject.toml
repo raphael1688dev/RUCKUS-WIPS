@@ -1,0 +1,44 @@
+[project]
+name = "ruckus-wips"
+version = "0.0.0"  # not packaged for PyPI; the real version is in manifest.json
+description = "RUCKUS WIPS Home Assistant integration (HACS)"
+requires-python = ">=3.13"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["custom_components"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "B",   # bugbear
+    "UP",  # pyupgrade
+    "SIM", # simplify
+    "RUF", # ruff-specific
+    "BLE", # blind-except
+]
+ignore = [
+    "E501",  # line too long — formatter handles long strings/URLs
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["BLE001"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true  # HA / aioruckus types vary across versions
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+files = ["custom_components/ruckus_wips"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

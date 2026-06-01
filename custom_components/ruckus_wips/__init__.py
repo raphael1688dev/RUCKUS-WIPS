@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 
+import aiohttp
 from aioruckus import AjaxSession
 from aioruckus.exceptions import AuthenticationError
 
@@ -42,7 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: RuckusWipsConfigEntry) -
     except AuthenticationError as err:
         await session.close()
         raise ConfigEntryAuthFailed("Authentication failed") from err
-    except Exception as err:
+    except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError) as err:
         await session.close()
         raise ConfigEntryNotReady(f"Cannot connect to Unleashed: {err}") from err
 

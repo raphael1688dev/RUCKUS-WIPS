@@ -1,0 +1,9 @@
+# Test deps. Intentionally minimal — full HA harness is not required for
+# the pure-logic tests; add pytest-homeassistant-custom-component if/when
+# you start writing entity/config-flow tests.
+pytest>=8.0
+pytest-asyncio>=0.23
+# Used by services.py at import time:
+voluptuous>=0.13
+# Stub for homeassistant.exceptions used by test imports:
+homeassistant>=2026.5.0

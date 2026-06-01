@@ -1,8 +1,11 @@
 mark_malicious:
+  target:
+    device:
+      integration: ruckus_wips
   fields:
     bssid:
       required: true
-      example: "fc:ee:e6:45:c4:6b"
+      example: "aa:bb:cc:dd:ee:ff"
       selector:
         text:
     entry_id:
@@ -13,10 +16,13 @@ mark_malicious:
           integration: ruckus_wips
 
 unmark_malicious:
+  target:
+    device:
+      integration: ruckus_wips
   fields:
     bssid:
       required: true
-      example: "fc:ee:e6:45:c4:6b"
+      example: "aa:bb:cc:dd:ee:ff"
       selector:
         text:
     entry_id:

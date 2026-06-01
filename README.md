@@ -27,8 +27,8 @@ Tested with R720 on Unleashed `200.15.6.212`. Requires Home Assistant
   with the same payload, alongside the EventEntity trigger. Use this when you
   prefer the `platform: event` automation trigger, or to subscribe from
   custom integrations. Logbook renders these with a human-readable line
-  (e.g. *"new rogue AP — realme C51 (5e:a6:…) · ch157 · rssi 8 · detected by
-  R720-2F (MASTER ROOM)"*).
+  (e.g. *"new rogue AP — Example-SSID (aa:bb:…) · ch157 · rssi 8 · detected by
+  AP-South (South Zone)"*).
 - **Service `ruckus_wips.mark_malicious`** — `bssid: aa:bb:cc:dd:ee:ff`
   triggers Unleashed to broadcast deauth, blocking clients from associating to
   that rogue.
@@ -50,7 +50,7 @@ browse-page thumbnails before users install.
 ## Install via HACS
 
 1. HACS → ⋯ menu → **Custom repositories**
-2. Add `https://github.com/raphael1688dev/RUCKUS-HACS` as type **Integration**
+2. Add `https://github.com/raphael1688dev/RUCKUS-WIPS` as type **Integration**
 3. Install **RUCKUS WIPS**, restart Home Assistant
 4. Settings → Devices & services → **Add integration** → "RUCKUS WIPS"
 5. Enter the Unleashed master IP or hostname and an admin credential
@@ -190,45 +190,243 @@ Three places show the full rogue details:
 - **Developer Tools → Events** → subscribe to `ruckus_wips_new_rogue` to
   watch payloads live as they fire.
 
-## Automation example
+## Automation examples
 
-Notify when an open-encryption rogue appears in the living room area:
+Two trigger styles are available — pick whichever feels natural:
+- **EventEntity state trigger:** `platform: state` on
+  `event.<network>_new_rogue_detected`. Use `trigger.to_state.attributes.*`
+  to read the rogue fields.
+- **Bus event trigger:** `platform: event` on `ruckus_wips_new_rogue`. Use
+  `trigger.event.data.*` to read the rogue fields. Slightly cleaner syntax
+  and what the examples below use.
 
-### Via the EventEntity (state-platform trigger)
-
-```yaml
-- alias: "Alert: open rogue near living room"
-  triggers:
-    - platform: state
-      entity_id: event.ruckus_unleashed_new_rogue_detected
-  conditions:
-    - "{{ trigger.to_state.attributes.encryption | lower == 'open' }}"
-    - "{{ 'LIVING' in (trigger.to_state.attributes.detection_ap_location or '') | upper }}"
-  actions:
-    - action: notify.mobile_app_phone
-      data:
-        title: "New open rogue near living room"
-        message: >
-          {{ trigger.to_state.attributes.ssid }}
-          ({{ trigger.to_state.attributes.bssid }})
-          ch {{ trigger.to_state.attributes.channel }}
-          rssi {{ trigger.to_state.attributes.rssi }}
-```
-
-### Via the bus event (event-platform trigger — simpler payload access)
+### Notify the HA bell (built-in, zero external setup)
 
 ```yaml
-- alias: "Auto-block any open rogue"
-  triggers:
-    - platform: event
-      event_type: ruckus_wips_new_rogue
-  conditions:
-    - "{{ trigger.event.data.encryption | lower == 'open' }}"
-  actions:
-    - action: ruckus_wips.mark_malicious
-      data:
-        bssid: "{{ trigger.event.data.bssid }}"
+alias: Ruckus Notify New Rogue
+description: 偵測到新 rogue AP 時在 HA 鈴鐺顯示通知
+mode: queued
+max: 10
+triggers:
+  - platform: event
+    event_type: ruckus_wips_new_rogue
+actions:
+  - action: persistent_notification.create
+    data:
+      title: >
+        ⚠️ 偵測到新 Rogue AP
+        {%- if trigger.event.data.encryption | lower == 'open' %} (開放式!){% endif %}
+      message: |
+        **{{ trigger.event.data.ssid or '(隱藏 SSID)' }}**
+        BSSID: `{{ trigger.event.data.bssid }}`
+        Ch{{ trigger.event.data.channel }} ({{ trigger.event.data.radio_band }}) / RSSI {{ trigger.event.data.rssi }}
+        加密: {{ trigger.event.data.encryption }}
+        偵測者: {{ trigger.event.data.detection_ap }} ({{ trigger.event.data.detection_ap_location }})
+        類型: {{ trigger.event.data.rogue_type }}
+      notification_id: "ruckus_rogue_{{ trigger.event.data.bssid }}"
 ```
+
+The `notification_id` includes the BSSID — so if the same rogue is re-detected
+on the next poll the notification is *replaced* rather than stacked. With
+`mode: queued` + `max: 10`, several distinct rogues appearing within a few
+seconds are queued instead of dropped.
+
+### Push to mobile via Home Assistant Companion
+
+```yaml
+alias: Ruckus Push New Rogue
+mode: queued
+max: 10
+triggers:
+  - platform: event
+    event_type: ruckus_wips_new_rogue
+actions:
+  - action: notify.mobile_app_my_phone   # ← change to your notify service
+    data:
+      title: >
+        ⚠️ 新 Rogue AP
+        {%- if trigger.event.data.encryption | lower == 'open' %} (開放){% endif %}
+      message: >
+        {{ trigger.event.data.ssid or '(隱藏)' }} {{ trigger.event.data.bssid }}
+        @ {{ trigger.event.data.detection_ap_location }} (rssi {{ trigger.event.data.rssi }})
+      data:
+        tag: "ruckus_rogue_{{ trigger.event.data.bssid }}"
+        group: "ruckus_wips"
+        actions:
+          - action: "URI"
+            title: "開 HA Dashboard"
+            uri: "/lovelace/ruckus"
+```
+
+### Push to mobile with a one-tap "封鎖" action
+
+Home Assistant Companion (iOS / Android) supports inline action buttons on
+push notifications. This pair of automations lets you block a rogue
+straight from the notification — no app open, no copy/paste.
+
+**A. Sender** — fires when a new rogue appears, sends a push with two
+buttons (封鎖 / 略過). The BSSID is encoded into the notification's `tag`
+so the handler can recover it later.
+
+```yaml
+alias: Ruckus Push w/ Actions
+mode: queued
+max: 10
+triggers:
+  - platform: event
+    event_type: ruckus_wips_new_rogue
+actions:
+  - action: notify.mobile_app_my_phone   # ← change to your service
+    data:
+      title: >
+        ⚠️ 新 Rogue AP
+        {%- if trigger.event.data.encryption | lower == 'open' %} (開放){% endif %}
+      message: >
+        {{ trigger.event.data.ssid or '(隱藏)' }} {{ trigger.event.data.bssid }}
+        @ {{ trigger.event.data.detection_ap_location }} (rssi {{ trigger.event.data.rssi }})
+      data:
+        tag: "ruckus_rogue_{{ trigger.event.data.bssid }}"
+        group: "ruckus_wips"
+        actions:
+          - action: "RUCKUS_BLOCK"
+            title: "封鎖此 BSSID"
+            destructive: true
+            icon: "sfsymbols:wifi.slash"
+          - action: "RUCKUS_IGNORE"
+            title: "略過"
+```
+
+**B. Handler** — fires when the user taps **封鎖** on the push. It parses
+the BSSID out of the notification tag, validates the format, and calls
+`ruckus_wips.mark_malicious`. A confirmation push is sent back.
+
+```yaml
+alias: Ruckus Handle Push Block Action
+mode: parallel
+triggers:
+  - platform: event
+    event_type: mobile_app_notification_action
+    event_data:
+      action: RUCKUS_BLOCK
+actions:
+  - variables:
+      bssid: "{{ trigger.event.data.tag | replace('ruckus_rogue_', '') }}"
+  - condition: template
+    value_template: "{{ bssid | regex_match('^([0-9a-f]{2}:){5}[0-9a-f]{2}$') }}"
+  - action: ruckus_wips.mark_malicious
+    data:
+      bssid: "{{ bssid }}"
+  - action: notify.mobile_app_my_phone   # ← same as Sender
+    data:
+      message: "✓ 已封鎖 {{ bssid }}"
+      data:
+        tag: "ruckus_blocked_{{ bssid }}"
+```
+
+Why encode the BSSID in `tag` and not in the `action` ID directly?
+`mobile_app_notification_action` events don't carry the original
+notification's full `data` block — they only carry the action ID and the
+tag. Using a generic action ID (`RUCKUS_BLOCK`) + per-item tag keeps
+action IDs portable across iOS/Android (which differ in how they tolerate
+non-ASCII characters in action IDs).
+
+**First-deploy gotcha:** the Companion app registers an automation's
+action set lazily. The very first push may show no buttons. Trigger the
+sender once (or use Developer Tools → Events to fake-fire
+`ruckus_wips_new_rogue`), then subsequent pushes will have the buttons.
+
+### Filter: only alert on open-encryption or only certain APs
+
+Add `conditions:` to either example above:
+
+```yaml
+conditions:
+  - "{{ trigger.event.data.encryption | lower == 'open' }}"
+  # OR limit to a specific detecting AP location
+  - "{{ 'LIVING' in (trigger.event.data.detection_ap_location or '') | upper }}"
+```
+
+### Auto-block any open rogue (no human in loop)
+
+⚠️ This issues deauth broadcasts immediately. Be sure none of your own
+networks would be flagged as "open" before turning this on.
+
+```yaml
+alias: Ruckus Auto-Block Open Rogue
+mode: queued
+triggers:
+  - platform: event
+    event_type: ruckus_wips_new_rogue
+conditions:
+  - "{{ trigger.event.data.encryption | lower == 'open' }}"
+actions:
+  - action: ruckus_wips.mark_malicious
+    data:
+      bssid: "{{ trigger.event.data.bssid }}"
+  - action: persistent_notification.create
+    data:
+      title: 🛡️ 已自動封鎖開放式 Rogue
+      message: >
+        {{ trigger.event.data.ssid or '(隱藏)' }} `{{ trigger.event.data.bssid }}`
+        被偵測到後立即標為 malicious。
+      notification_id: "ruckus_auto_block_{{ trigger.event.data.bssid }}"
+```
+
+## Troubleshooting
+
+### "icon not available" on the integration card
+
+HA 2026.3+ serves the bundled logo from
+`custom_components/ruckus_wips/brand/`. If it doesn't appear:
+1. Restart Home Assistant (the brand proxy reads the folder at startup).
+2. Hard-refresh the browser (Cmd/Ctrl+Shift+R) — frontend caches the
+   "icon not available" placeholder aggressively.
+3. Verify all 8 PNGs exist in the `brand/` folder.
+
+### Dashboard "封鎖" button errors with `Action script.<name> not found`
+
+HA's UI-created scripts have two parallel identifiers — an *entity_id* (the
+display name) and a *service name* (what `tap_action: perform_action` calls).
+At creation time HA strips non-ASCII characters from the alias when deriving
+both. **Renaming the entity_id afterwards does NOT update the service name**
+— not even a HA restart or Reload Scripts moves it.
+
+Fix: delete the script and recreate it with an **ASCII English alias** that
+matches the desired service name (e.g. `Ruckus Block Typed BSSID` →
+`script.ruckus_block_typed_bssid`). After saving, rename the **Name** to
+whatever locale you want via the script's Settings; the Name doesn't affect
+entity_id or service name.
+
+### `value_json is undefined` errors in the HA log
+
+Not from this integration — `value_json` is a Jinja variable used only by
+HA's REST / MQTT / Command-line / SQL sensors. The error means one of
+those sensors is failing to parse a JSON response (the source returned an
+empty body or HTML).
+
+Search your config for the offending template:
+```sh
+grep -rn "value_json" /config/.storage/ /config/
+```
+The culprit is usually a REST or MQTT sensor pointing at a URL that's
+returning HTML (login page, 5xx error) instead of JSON.
+
+### Unleashed Web UI kicks you out when HA is running
+
+Unleashed defaults to allowing one admin web session at a time. This
+integration holds it continuously, so logging in via the browser bumps
+HA out (or vice versa).
+
+Fix: in Unleashed → Admin & Services → System → System Info, enable
+multi-session admin. Then HA and your browser coexist.
+
+### Sensor `entity_id` doesn't match the README examples
+
+The README uses `sensor.ruckus_unleashed_active_rogues` as a placeholder
+(it assumes the Unleashed master identity name `Ruckus-Unleashed`). Yours
+will mirror whatever name your master AP reports. Check the actual value
+in Developer Tools → States, filter `sensor.ruckus`, then update your
+dashboard YAML to match.
 
 ## Caveats
 

@@ -1,0 +1,73 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "連線到 RUCKUS Unleashed",
+        "description": "輸入 Unleashed 主 AP 的位址與管理員帳號。",
+        "data": {
+          "host": "主機名稱或 IP",
+          "username": "帳號",
+          "password": "密碼"
+        }
+      },
+      "reauth_confirm": {
+        "title": "重新驗證 RUCKUS Unleashed",
+        "data": {
+          "username": "帳號",
+          "password": "密碼"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "無法連線到 Unleashed 控制器。",
+      "invalid_auth": "帳號或密碼錯誤。"
+    },
+    "abort": {
+      "already_configured": "此 RUCKUS Unleashed 控制器已設定過。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "RUCKUS WIPS 選項",
+        "data": {
+          "scan_interval": "輪詢間隔(秒)",
+          "rssi_threshold": "RSSI 過濾門檻(0 = 不過濾)",
+          "ignore_known": "隱藏分類為 Known 的鄰居 AP",
+          "enable_unblock": "啟用解除惡意標記服務(進階)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "active_rogue_count": { "name": "目前可疑 AP 數量" },
+      "blocked_rogue_count": { "name": "已封鎖 AP 數量" },
+      "total_rogue_count": { "name": "Rogue 總數" }
+    },
+    "event": {
+      "new_rogue": { "name": "偵測到新 Rogue AP" }
+    }
+  },
+  "services": {
+    "mark_malicious": {
+      "name": "標記為惡意 AP",
+      "description": "通知 Unleashed 對指定 BSSID 廣播 deauth,阻止客戶端連線。",
+      "fields": {
+        "bssid": { "name": "BSSID", "description": "Rogue AP 的 MAC 位址。" },
+        "entry_id": { "name": "控制器", "description": "要操作的 Unleashed 控制器(僅在設定多台時需要)。" }
+      }
+    },
+    "unmark_malicious": {
+      "name": "解除惡意標記",
+      "description": "撤銷先前的封鎖,停止對該 BSSID 的 deauth。",
+      "fields": {
+        "bssid": { "name": "BSSID", "description": "Rogue AP 的 MAC 位址。" },
+        "entry_id": { "name": "控制器", "description": "要操作的 Unleashed 控制器(僅在設定多台時需要)。" }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_bssid": { "message": "{bssid} 不是有效的 MAC 位址。" }
+  }
+}

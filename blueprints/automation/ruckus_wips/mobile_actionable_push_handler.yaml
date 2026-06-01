@@ -1,0 +1,48 @@
+blueprint:
+  name: RUCKUS WIPS — Handle mobile push "Block" action
+  description: |
+    Companion handler for `mobile_actionable_push.yaml`. Fires when a user
+    taps the **Block** button on a RUCKUS rogue push notification, parses
+    the BSSID out of the notification tag, validates the format, and calls
+    `ruckus_wips.mark_malicious`.
+
+    Optionally posts a confirmation push back to the same device.
+  domain: automation
+  source_url: https://github.com/raphael1688dev/RUCKUS-WIPS/blob/main/blueprints/automation/ruckus_wips/mobile_actionable_push_handler.yaml
+  input:
+    confirm_service:
+      name: Confirmation push back to phone
+      description: >
+        Same notify service as the sender blueprint, or leave empty to skip
+        confirmation. Example: `notify.mobile_app_my_phone`.
+      default: ""
+      selector:
+        text:
+
+mode: parallel
+
+triggers:
+  - platform: event
+    event_type: mobile_app_notification_action
+    event_data:
+      action: RUCKUS_BLOCK
+
+variables:
+  bssid: "{{ trigger.event.data.tag | replace('ruckus_rogue_', '') | lower | trim }}"
+  confirm_service: !input confirm_service
+
+conditions:
+  - "{{ bssid | regex_match('^([0-9a-f]{2}:){5}[0-9a-f]{2}$') }}"
+
+actions:
+  - action: ruckus_wips.mark_malicious
+    data:
+      bssid: "{{ bssid }}"
+  - if:
+      - "{{ confirm_service != '' }}"
+    then:
+      - action: "{{ confirm_service }}"
+        data:
+          message: "✓ Blocked {{ bssid }}"
+          data:
+            tag: "ruckus_blocked_{{ bssid }}"

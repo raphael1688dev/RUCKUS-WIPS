@@ -93,6 +93,8 @@ class RuckusWipsSensor(CoordinatorEntity[RuckusWipsCoordinator], SensorEntity):
             return {"rogues": [_rogue_attrs(r) for r in self.coordinator.data.active_unblocked]}
         if self.entity_description.key == "blocked_rogue_count":
             return {"rogues": [_rogue_attrs(r) for r in self.coordinator.data.blocked]}
+        if self.entity_description.key == "total_rogue_count":
+            return {"rogues": [_rogue_attrs(r) for r in self.coordinator.data.rogues.values()]}
         return {}
 
 

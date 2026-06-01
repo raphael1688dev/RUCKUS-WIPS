@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from typing import Any
 
+import aiohttp
 from aioruckus import AjaxSession
 from aioruckus.exceptions import AuthenticationError
 import voluptuous as vol
@@ -72,7 +74,11 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             except AuthenticationError:
                 errors["base"] = "invalid_auth"
-            except Exception:  # noqa: BLE001 — surface anything else as a generic connect error
+            except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001 — log + fall through to generic
+                _log = __import__("logging").getLogger(__name__)
+                _log.exception("Unexpected error during RUCKUS WIPS setup probe")
                 errors["base"] = "cannot_connect"
             else:
                 serial = (system.get("sysinfo") or {}).get("serial")
@@ -104,7 +110,11 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             except AuthenticationError:
                 errors["base"] = "invalid_auth"
+            except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
+                errors["base"] = "cannot_connect"
             except Exception:  # noqa: BLE001
+                _log = __import__("logging").getLogger(__name__)
+                _log.exception("Unexpected error during RUCKUS WIPS reauth probe")
                 errors["base"] = "cannot_connect"
             else:
                 entry = self._get_reauth_entry()

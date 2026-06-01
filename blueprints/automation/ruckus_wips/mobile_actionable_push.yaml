@@ -1,0 +1,55 @@
+blueprint:
+  name: RUCKUS WIPS — Mobile push with one-tap block action
+  description: |
+    Sends a Home Assistant Companion push when a new rogue AP appears, with
+    inline **封鎖 / Block** and **略過 / Ignore** action buttons. Tapping
+    **Block** calls `ruckus_wips.mark_malicious` for the rogue's BSSID.
+
+    The BSSID is encoded into the notification's `tag` so the response
+    handler can recover it — this avoids per-BSSID action ID registration
+    that iOS/Android handle inconsistently.
+
+    Requires a companion app paired with HA. First push may not show the
+    action buttons (the companion registers them lazily on first receive);
+    subsequent pushes will.
+
+    To handle the "Block" tap, you'll also need the companion
+    **Handle push block action** blueprint — see
+    `mobile_actionable_push_handler.yaml`.
+  domain: automation
+  source_url: https://github.com/raphael1688dev/RUCKUS-WIPS/blob/main/blueprints/automation/ruckus_wips/mobile_actionable_push.yaml
+  input:
+    notify_service:
+      name: Mobile notify service
+      description: >
+        e.g. `notify.mobile_app_my_phone` — find your exact service in
+        Developer Tools → Actions.
+      selector:
+        text:
+
+mode: queued
+max: 10
+
+triggers:
+  - platform: event
+    event_type: ruckus_wips_new_rogue
+
+actions:
+  - action: !input notify_service
+    data:
+      title: >
+        ⚠️ New Rogue AP
+        {%- if trigger.event.data.encryption | lower == 'open' %} (open){% endif %}
+      message: >
+        {{ trigger.event.data.ssid or '(hidden)' }} {{ trigger.event.data.bssid }}
+        @ {{ trigger.event.data.detection_ap_location }} (rssi {{ trigger.event.data.rssi }})
+      data:
+        tag: "ruckus_rogue_{{ trigger.event.data.bssid }}"
+        group: "ruckus_wips"
+        actions:
+          - action: "RUCKUS_BLOCK"
+            title: "Block"
+            destructive: true
+            icon: "sfsymbols:wifi.slash"
+          - action: "RUCKUS_IGNORE"
+            title: "Ignore"

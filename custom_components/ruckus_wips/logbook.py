@@ -4,8 +4,8 @@ Without this module, Logbook entries for our events would render as a bare
 event-type string. The describer turns each `ruckus_wips_new_rogue` bus event
 into a human-readable line like:
 
-    New rogue AP detected: realme C51 (5e:a6:e6:78:a0:b8)
-    ch157 rssi 8 — detected by R720-2F (MASTER ROOM)
+    New rogue AP detected: Example-SSID (aa:bb:cc:dd:ee:ff)
+    ch157 rssi 8 — detected by AP-South (South Zone)
 """
 
 from __future__ import annotations

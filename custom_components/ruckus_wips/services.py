@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import TYPE_CHECKING
 
+import aiohttp
+from aioruckus.exceptions import AuthenticationError
 import voluptuous as vol
 
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .const import (
     ATTR_BSSID,
@@ -24,6 +27,8 @@ from .const import (
 if TYPE_CHECKING:
     from aioruckus import AjaxSession
 
+    from . import RuckusWipsConfigEntry
+
 _LOGGER = logging.getLogger(__name__)
 
 _MAC_RE = re.compile(r"^([0-9a-f]{2}[:\-]){5}[0-9a-f]{2}$", re.IGNORECASE)
@@ -32,7 +37,20 @@ SERVICE_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_BSSID): cv.string,
         vol.Optional("entry_id"): cv.string,
+        vol.Optional("device_id"): cv.string,
     }
+)
+
+# Errors that "talking to Unleashed" can plausibly raise. Used by service
+# handlers to surface a clean HomeAssistantError instead of letting them
+# bubble up uncaught.
+_TRANSPORT_ERRORS = (
+    aiohttp.ClientError,
+    asyncio.TimeoutError,
+    ConnectionError,
+    KeyError,
+    ValueError,
+    TypeError,
 )
 
 
@@ -47,7 +65,16 @@ def _normalize(bssid: str) -> str:
     return bssid
 
 
-def _resolve_session(hass: HomeAssistant, call: ServiceCall) -> AjaxSession:
+def _resolve_entry(hass: HomeAssistant, call: ServiceCall) -> RuckusWipsConfigEntry:
+    """Pick the controller entry for this service call.
+
+    Resolution order:
+    1. Explicit `entry_id` in service data.
+    2. Explicit `device_id` (via HA's target selector) → look up the hub
+       device → resolve to the owning entry.
+    3. The single loaded entry, if only one exists.
+    4. Error — caller must disambiguate.
+    """
     entries = [
         entry
         for entry in hass.config_entries.async_entries(DOMAIN)
@@ -56,21 +83,52 @@ def _resolve_session(hass: HomeAssistant, call: ServiceCall) -> AjaxSession:
     if not entries:
         raise HomeAssistantError("No RUCKUS WIPS integrations are loaded.")
 
-    requested = call.data.get("entry_id")
-    if requested:
+    requested_entry = call.data.get("entry_id")
+    if requested_entry:
         for entry in entries:
-            if entry.entry_id == requested:
-                return entry.runtime_data.session
+            if entry.entry_id == requested_entry:
+                return entry
         raise ServiceValidationError(
-            f"entry_id {requested} not found among loaded RUCKUS WIPS entries"
+            f"entry_id {requested_entry} not found among loaded RUCKUS WIPS entries"
+        )
+
+    requested_device = call.data.get("device_id")
+    if requested_device:
+        device_reg = dr.async_get(hass)
+        device = device_reg.async_get(requested_device)
+        if device is None:
+            raise ServiceValidationError(
+                f"device_id {requested_device} not found"
+            )
+        for entry_id in device.config_entries:
+            for entry in entries:
+                if entry.entry_id == entry_id:
+                    return entry
+        raise ServiceValidationError(
+            f"device {requested_device} is not owned by any loaded RUCKUS WIPS entry"
         )
 
     if len(entries) > 1:
         raise ServiceValidationError(
             "Multiple RUCKUS WIPS controllers are configured. "
-            "Pass entry_id to identify which one to target."
+            "Pass entry_id or pick a device to identify which one to target."
         )
-    return entries[0].runtime_data.session
+    return entries[0]
+
+
+def _resolve_session(hass: HomeAssistant, call: ServiceCall) -> AjaxSession:
+    return _resolve_entry(hass, call).runtime_data.session
+
+
+async def _refresh_after_action(hass: HomeAssistant, session: AjaxSession) -> None:
+    """Best-effort coordinator refresh — never raises into the caller."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.runtime_data and entry.runtime_data.session is session:
+            try:
+                await entry.runtime_data.coordinator.async_request_refresh()
+            except Exception as err:  # noqa: BLE001 — refresh is fire-and-forget
+                _LOGGER.debug("Post-action refresh raised %s: %s", type(err).__name__, err)
+            break
 
 
 async def _async_mark_malicious(call: ServiceCall) -> ServiceResponse:
@@ -82,21 +140,27 @@ async def _async_mark_malicious(call: ServiceCall) -> ServiceResponse:
         f"<xcmd cmd='blockrogue' tag='rogue' rogue='{bssid}'/></ajax-request>"
     )
     try:
-        resp = await session.api.cmdstat(payload)
-    except Exception as err:  # noqa: BLE001
-        raise HomeAssistantError(f"mark_malicious failed: {err}") from err
+        try:
+            resp = await session.api.cmdstat(payload)
+        except AuthenticationError as err:
+            raise HomeAssistantError(
+                f"Authentication to Unleashed failed during mark_malicious: {err}"
+            ) from err
+        except _TRANSPORT_ERRORS as err:
+            raise HomeAssistantError(
+                f"mark_malicious failed ({type(err).__name__}): {err}"
+            ) from err
 
-    xmsg = (resp or {}).get("xmsg") or {}
-    if str(xmsg.get("type", "0")) != "0":
-        raise HomeAssistantError(
-            f"Unleashed rejected mark_malicious for {bssid}: {xmsg.get('lmsg') or xmsg}"
-        )
-
-    # Pull a fresh snapshot so sensors / event entity reflect the change quickly.
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        if entry.runtime_data and entry.runtime_data.session is session:
-            await entry.runtime_data.coordinator.async_request_refresh()
-            break
+        xmsg = (resp or {}).get("xmsg") or {}
+        if str(xmsg.get("type", "0")) != "0":
+            raise HomeAssistantError(
+                f"Unleashed rejected mark_malicious for {bssid}: {xmsg.get('lmsg') or xmsg}"
+            )
+    finally:
+        # Always refresh — even if Unleashed rejected, our local snapshot
+        # may be stale and re-fetching realigns it with the controller's
+        # actual state.
+        await _refresh_after_action(hass, session)
 
     return {"bssid": bssid, "blocked": True}
 
@@ -110,20 +174,24 @@ async def _async_unmark_malicious(call: ServiceCall) -> ServiceResponse:
         f"<xcmd cmd='unblockrogue' tag='rogue' rogue='{bssid}'/></ajax-request>"
     )
     try:
-        resp = await session.api.cmdstat(payload)
-    except Exception as err:  # noqa: BLE001
-        raise HomeAssistantError(f"unmark_malicious failed: {err}") from err
+        try:
+            resp = await session.api.cmdstat(payload)
+        except AuthenticationError as err:
+            raise HomeAssistantError(
+                f"Authentication to Unleashed failed during unmark_malicious: {err}"
+            ) from err
+        except _TRANSPORT_ERRORS as err:
+            raise HomeAssistantError(
+                f"unmark_malicious failed ({type(err).__name__}): {err}"
+            ) from err
 
-    xmsg = (resp or {}).get("xmsg") or {}
-    if str(xmsg.get("type", "0")) != "0":
-        raise HomeAssistantError(
-            f"Unleashed rejected unmark_malicious for {bssid}: {xmsg.get('lmsg') or xmsg}"
-        )
-
-    for entry in hass.config_entries.async_entries(DOMAIN):
-        if entry.runtime_data and entry.runtime_data.session is session:
-            await entry.runtime_data.coordinator.async_request_refresh()
-            break
+        xmsg = (resp or {}).get("xmsg") or {}
+        if str(xmsg.get("type", "0")) != "0":
+            raise HomeAssistantError(
+                f"Unleashed rejected unmark_malicious for {bssid}: {xmsg.get('lmsg') or xmsg}"
+            )
+    finally:
+        await _refresh_after_action(hass, session)
 
     return {"bssid": bssid, "blocked": False}
 

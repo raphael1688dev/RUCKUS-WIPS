@@ -1,0 +1,47 @@
+blueprint:
+  name: RUCKUS WIPS — Auto-block open-encryption rogues
+  description: |
+    When a new rogue AP appears AND its encryption is open (no WPA), call
+    `ruckus_wips.mark_malicious` to broadcast deauth and post a
+    confirmation notification.
+
+    Open APs are the highest-risk class of rogue (clients may auto-join
+    them, MitM is trivial). This blueprint automates the response.
+
+    ⚠️ Verify none of YOUR own networks would ever appear as encryption
+    "Open" before enabling — this is a destructive action that will deauth
+    anyone on the matched BSSID.
+  domain: automation
+  source_url: https://github.com/raphael1688dev/RUCKUS-WIPS/blob/main/blueprints/automation/ruckus_wips/autoblock_open_rogue.yaml
+  input:
+    notify_service:
+      name: Confirmation notification service
+      description: >
+        Service to call after blocking. Default: HA bell. Leave as
+        default if you don't want a confirmation.
+      default: persistent_notification.create
+      selector:
+        text:
+
+mode: queued
+max: 10
+
+triggers:
+  - platform: event
+    event_type: ruckus_wips_new_rogue
+
+conditions:
+  - "{{ trigger.event.data.encryption | lower == 'open' }}"
+
+actions:
+  - action: ruckus_wips.mark_malicious
+    data:
+      bssid: "{{ trigger.event.data.bssid }}"
+  - action: !input notify_service
+    data:
+      title: 🛡️ Auto-blocked open rogue
+      message: >
+        {{ trigger.event.data.ssid or '(hidden)' }} `{{ trigger.event.data.bssid }}`
+        was detected and immediately marked malicious. Deauth broadcasts have
+        started.
+      notification_id: "ruckus_auto_block_{{ trigger.event.data.bssid }}"

@@ -1,0 +1,16 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: check-translations
+        name: check translations drift
+        entry: python3 scripts/check_translations.py
+        language: system
+        files: ^custom_components/ruckus_wips/(strings\.json|translations/.*\.json)$
+        pass_filenames: false

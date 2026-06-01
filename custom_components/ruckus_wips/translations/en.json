@@ -35,6 +35,11 @@
           "rssi_threshold": "Minimum RSSI to report (0 = no filter)",
           "ignore_known": "Hide rogues classified as Known",
           "enable_unblock": "Expose unmark_malicious service (advanced)"
+        },
+        "data_description": {
+          "scan_interval": "Ruckus background scan runs about every 30 seconds, so values below 30 give no extra freshness.",
+          "rssi_threshold": "Filter out very weak detections. Ruckus RSSI is reported as a small positive number; higher = stronger.",
+          "enable_unblock": "When enabled, an unmark_malicious service is registered. Off by default to avoid accidental un-blocks."
         }
       }
     }
@@ -46,7 +51,16 @@
       "total_rogue_count": { "name": "Total rogues" }
     },
     "event": {
-      "new_rogue": { "name": "New rogue detected" }
+      "new_rogue": {
+        "name": "New rogue detected",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new_rogue": "New rogue"
+            }
+          }
+        }
+      }
     }
   },
   "services": {

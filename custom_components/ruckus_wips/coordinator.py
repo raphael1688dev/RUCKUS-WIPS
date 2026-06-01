@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import timedelta
 import logging
+import time
 from typing import TYPE_CHECKING, Any
 
+import aiohttp
 from aioruckus import AjaxSession
 from aioruckus.exceptions import AuthenticationError
 
@@ -30,6 +33,16 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 _LOGGER = logging.getLogger(__name__)
+
+# A BSSID stays in the "seen" set for this long after its last detection.
+# Older entries are pruned each refresh to keep memory bounded over months
+# of uptime in dense RF environments. When the same BSSID reappears after
+# this window, it counts as "new" and re-fires the new_rogue event.
+SEEN_BSSID_TTL_SECONDS: int = 24 * 60 * 60
+
+# Re-fetch system_info every Nth poll (so firmware-version updates surface
+# without requiring a HA restart). Cheap call; small N is fine.
+SYSTEM_INFO_REFRESH_EVERY_N_POLLS: int = 20
 
 
 @dataclass
@@ -130,8 +143,16 @@ class RuckusWipsCoordinator(DataUpdateCoordinator[RuckusWipsSnapshot]):
         )
         self.entry = entry
         self.session = session
-        self._seen_bssids: set[str] = set()
+        # bssid → unix-timestamp of most recent observation. Bounded by TTL
+        # eviction in `_dispatch_new_rogues`.
+        self._seen_bssids: dict[str, int] = {}
+        # True after the first non-empty seed. Distinguishes "HA just started"
+        # (suppress alerts) from "everything timed out simultaneously"
+        # (do alert — rogues genuinely went away and came back).
+        self._warmed_up: bool = False
         self._new_rogue_listeners: list[Callable[[Rogue], None]] = []
+        self._system: dict[str, Any] | None = None
+        self._poll_count: int = 0
 
     @callback
     def async_add_new_rogue_listener(self, cb: Callable[[Rogue], None]) -> Callable[[], None]:
@@ -152,15 +173,24 @@ class RuckusWipsCoordinator(DataUpdateCoordinator[RuckusWipsSnapshot]):
             raise ConfigEntryAuthFailed from err
 
     async def _async_update_data(self) -> RuckusWipsSnapshot:
+        api = self.session.api
+        self._poll_count += 1
+        refresh_system = (
+            self._system is None
+            or self._poll_count % SYSTEM_INFO_REFRESH_EVERY_N_POLLS == 0
+        )
         try:
-            api = self.session.api
             active_raw = await api.get_active_rogues()
             blocked_raw = await api.get_blocked_rogues()
-            system = getattr(self, "_system", None) or await api.get_system_info()
+            if refresh_system:
+                self._system = await api.get_system_info()
         except AuthenticationError as err:
             raise ConfigEntryAuthFailed from err
-        except Exception as err:
-            raise UpdateFailed(f"Failed to query Unleashed: {err}") from err
+        except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError) as err:
+            raise UpdateFailed(f"Network error talking to Unleashed: {err}") from err
+        except (KeyError, ValueError, TypeError) as err:
+            raise UpdateFailed(f"Unexpected response from Unleashed: {err}") from err
+        system = self._system or {}
 
         ignore_known = self.entry.options.get(CONF_IGNORE_KNOWN, DEFAULT_IGNORE_KNOWN)
         rssi_threshold = self.entry.options.get(CONF_RSSI_THRESHOLD, DEFAULT_RSSI_THRESHOLD)
@@ -198,16 +228,38 @@ class RuckusWipsCoordinator(DataUpdateCoordinator[RuckusWipsSnapshot]):
         return snapshot
 
     async def _dispatch_new_rogues(self, rogues: dict[str, Rogue]) -> None:
-        """Fire callbacks AND bus events for BSSIDs we haven't observed before."""
-        if not self._seen_bssids:
-            # First poll: seed without firing — avoid burying the user in alerts on restart.
-            self._seen_bssids.update(rogues)
+        """Fire callbacks AND bus events for BSSIDs we haven't observed before.
+
+        Maintains an age-bounded `_seen_bssids` map so memory stays flat over
+        long uptimes — entries older than `SEEN_BSSID_TTL_SECONDS` are pruned
+        each refresh. A BSSID that disappears and reappears beyond the TTL
+        counts as "new" again and re-fires the event.
+        """
+        now = int(time.time())
+
+        # Prune entries older than TTL so the map can't grow unbounded.
+        cutoff = now - SEEN_BSSID_TTL_SECONDS
+        if self._seen_bssids:
+            stale = [b for b, ts in self._seen_bssids.items() if ts < cutoff]
+            for b in stale:
+                del self._seen_bssids[b]
+
+        if not self._warmed_up:
+            # The very first non-empty poll seeds the map without firing.
+            # This suppresses the "you have N rogues!" deluge on HA restart.
+            # A simultaneous mass-eviction does NOT re-enter this branch —
+            # `_warmed_up` stays true for the lifetime of the coordinator.
+            if rogues:
+                for bssid in rogues:
+                    self._seen_bssids[bssid] = now
+                self._warmed_up = True
             return
 
         for bssid, rogue in rogues.items():
-            if bssid in self._seen_bssids:
+            previously_seen = bssid in self._seen_bssids
+            self._seen_bssids[bssid] = now  # refresh timestamp every time
+            if previously_seen:
                 continue
-            self._seen_bssids.add(bssid)
             event_data = {
                 "bssid": rogue.bssid,
                 "ssid": rogue.ssid,

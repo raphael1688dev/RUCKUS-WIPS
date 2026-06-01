@@ -1,0 +1,31 @@
+# Local virtualenv
+.venv/
+
+# Python compile artifacts
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store
+
+# Test / lint caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Build / download junk
+*.whl
+
+# Internal-only — do NOT push to the public repo
+CLAUDE.md
+docs/
+
+# Dev probe scripts — they take a live admin password as argv
+# and would leak it if accidentally captured in shell history
+probe.py
+probe_unblock.py
+probe_output.txt
+
+# Brands-repo staging directory — duplicates custom_components/ruckus_wips/brand/.
+# Only kept locally as a snapshot in case we ever PR to home-assistant/brands.
+brands/

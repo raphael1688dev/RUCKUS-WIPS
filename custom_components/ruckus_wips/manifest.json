@@ -3,11 +3,11 @@
   "name": "RUCKUS WIPS",
   "codeowners": ["@raphael1688dev"],
   "config_flow": true,
-  "documentation": "https://github.com/raphael1688dev/RUCKUS-HACS",
+  "documentation": "https://github.com/raphael1688dev/RUCKUS-WIPS",
   "integration_type": "hub",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/raphael1688dev/RUCKUS-HACS/issues",
-  "requirements": ["aioruckus>=0.42"],
-  "version": "0.2.1",
+  "issue_tracker": "https://github.com/raphael1688dev/RUCKUS-WIPS/issues",
+  "requirements": ["aioruckus>=0.42,<1.0"],
+  "version": "20260601r1",
   "homeassistant": "2026.5.0"
 }
