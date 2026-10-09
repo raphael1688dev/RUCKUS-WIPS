@@ -16,6 +16,15 @@
           "username": "帳號",
           "password": "密碼"
         }
+      },
+      "reconfigure": {
+        "title": "重新設定 RUCKUS Unleashed",
+        "description": "更新此 Unleashed 控制器的主機位址或管理員帳號。",
+        "data": {
+          "host": "主機名稱或 IP",
+          "username": "帳號",
+          "password": "密碼"
+        }
       }
     },
     "error": {
@@ -23,7 +32,8 @@
       "invalid_auth": "帳號或密碼錯誤。"
     },
     "abort": {
-      "already_configured": "此 RUCKUS Unleashed 控制器已設定過。"
+      "already_configured": "此 RUCKUS Unleashed 控制器已設定過。",
+      "wrong_controller": "您輸入的主機指向不同的 Unleashed 控制器,請改為新增一個新的整合。"
     }
   },
   "options": {
@@ -68,6 +78,14 @@
     }
   },
   "exceptions": {
-    "invalid_bssid": { "message": "{bssid} 不是有效的 MAC 位址。" }
+    "invalid_bssid": { "message": "{bssid} 不是有效的 MAC 位址。" },
+    "no_entries": { "message": "尚未設定任何 RUCKUS WIPS 控制器。" },
+    "no_loaded_entries": { "message": "目前沒有已載入的 RUCKUS WIPS 控制器,請確認連線後再試。" },
+    "entry_not_found": { "message": "找不到 RUCKUS WIPS 控制器項目 {entry_id}。" },
+    "entry_not_loaded": { "message": "RUCKUS WIPS 控制器項目 {entry_id} 尚未載入。" },
+    "device_not_found": { "message": "找不到裝置 {device_id}。" },
+    "device_not_owned": { "message": "裝置 {device_id} 不屬於任何已載入的 RUCKUS WIPS 控制器。" },
+    "multiple_entries": { "message": "設定了多個 RUCKUS WIPS 控制器,請透過 entry_id 或目標裝置指定要操作哪一個。" },
+    "unblock_disabled": { "message": "此控制器未啟用解除惡意標記服務,請先在整合的選項中開啟後再使用。" }
   }
 }

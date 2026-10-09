@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from homeassistant.components.event import EventEntity
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import RuckusWipsConfigEntry
@@ -37,21 +38,23 @@ class RuckusWipsRogueEvent(EventEntity):
         entry: RuckusWipsConfigEntry,
     ) -> None:
         self._coordinator = coordinator
+        self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_new_rogue"
-        sysinfo = ((coordinator.data.system if coordinator.data else {}) or {}).get(
-            "sysinfo", {}
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Re-read system snapshot each call so firmware upgrades surface."""
+        system = (self._coordinator.data.system if self._coordinator.data else {}) or {}
+        sysinfo = system.get("sysinfo") or {}
+        identity = system.get("identity") or {}
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._entry.unique_id or self._entry.entry_id)},
+            manufacturer="RUCKUS",
+            name=identity.get("name") or self._entry.title,
+            model=sysinfo.get("display-model") or sysinfo.get("model") or "Unleashed",
+            sw_version=sysinfo.get("version"),
+            serial_number=sysinfo.get("serial"),
         )
-        identity = ((coordinator.data.system if coordinator.data else {}) or {}).get(
-            "identity", {}
-        )
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, entry.unique_id or entry.entry_id)},
-            "manufacturer": "RUCKUS",
-            "name": identity.get("name") or entry.title,
-            "model": sysinfo.get("display-model") or sysinfo.get("model") or "Unleashed",
-            "sw_version": sysinfo.get("version"),
-            "serial_number": sysinfo.get("serial"),
-        }
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(

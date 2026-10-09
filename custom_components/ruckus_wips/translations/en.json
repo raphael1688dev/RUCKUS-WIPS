@@ -16,6 +16,15 @@
           "username": "Username",
           "password": "Password"
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure RUCKUS Unleashed",
+        "description": "Update the host or admin credentials for this Unleashed controller.",
+        "data": {
+          "host": "Hostname or IP",
+          "username": "Username",
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -23,7 +32,8 @@
       "invalid_auth": "Username or password is incorrect."
     },
     "abort": {
-      "already_configured": "This RUCKUS Unleashed controller is already configured."
+      "already_configured": "This RUCKUS Unleashed controller is already configured.",
+      "wrong_controller": "The host you entered points to a different Unleashed controller. Add it as a new integration instead."
     }
   },
   "options": {
@@ -39,7 +49,7 @@
         "data_description": {
           "scan_interval": "Ruckus background scan runs about every 30 seconds, so values below 30 give no extra freshness.",
           "rssi_threshold": "Filter out very weak detections. Ruckus RSSI is reported as a small positive number; higher = stronger.",
-          "enable_unblock": "When enabled, an unmark_malicious service is registered. Off by default to avoid accidental un-blocks."
+          "enable_unblock": "When enabled, the unmark_malicious service will act on this controller. Off by default to avoid accidental un-blocks."
         }
       }
     }
@@ -82,6 +92,14 @@
     }
   },
   "exceptions": {
-    "invalid_bssid": { "message": "{bssid} is not a valid MAC address." }
+    "invalid_bssid": { "message": "{bssid} is not a valid MAC address." },
+    "no_entries": { "message": "No RUCKUS WIPS controllers are configured." },
+    "no_loaded_entries": { "message": "No RUCKUS WIPS controllers are currently loaded. Check the controller's connection and try again." },
+    "entry_not_found": { "message": "RUCKUS WIPS controller entry {entry_id} was not found." },
+    "entry_not_loaded": { "message": "RUCKUS WIPS controller entry {entry_id} is not loaded." },
+    "device_not_found": { "message": "Device {device_id} was not found." },
+    "device_not_owned": { "message": "Device {device_id} is not owned by any loaded RUCKUS WIPS controller." },
+    "multiple_entries": { "message": "Multiple RUCKUS WIPS controllers are configured. Pass entry_id or target a device to pick one." },
+    "unblock_disabled": { "message": "The unmark_malicious action is disabled on this controller. Enable it from the integration's Options to use this service." }
   }
 }

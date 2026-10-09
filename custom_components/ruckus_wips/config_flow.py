@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+import logging
 from typing import Any
 
 import aiohttp
@@ -15,7 +16,7 @@ from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
-    OptionsFlow,
+    OptionsFlowWithReload,
 )
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
@@ -35,9 +36,20 @@ from .const import (
     MIN_SCAN_INTERVAL,
 )
 
+_LOGGER = logging.getLogger(__name__)
+
 USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
+        vol.Required(CONF_USERNAME): str,
+        vol.Required(CONF_PASSWORD): selector.TextSelector(
+            selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+        ),
+    }
+)
+
+CREDENTIALS_SCHEMA = vol.Schema(
+    {
         vol.Required(CONF_USERNAME): str,
         vol.Required(CONF_PASSWORD): selector.TextSelector(
             selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
@@ -54,6 +66,10 @@ async def _async_probe(host: str, username: str, password: str) -> dict[str, Any
         return await session.api.get_system_info()
     finally:
         await session.close()
+
+
+def _extract_serial(system: dict[str, Any]) -> str | None:
+    return (system.get("sysinfo") or {}).get("serial")
 
 
 class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -76,12 +92,11 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_auth"
             except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001 — log + fall through to generic
-                _log = __import__("logging").getLogger(__name__)
-                _log.exception("Unexpected error during RUCKUS WIPS setup probe")
+            except Exception:  # noqa: BLE001 — log + surface a generic error
+                _LOGGER.exception("Unexpected error during RUCKUS WIPS setup probe")
                 errors["base"] = "cannot_connect"
             else:
-                serial = (system.get("sysinfo") or {}).get("serial")
+                serial = _extract_serial(system)
                 if serial:
                     await self.async_set_unique_id(serial)
                     self._abort_if_unique_id_configured(updates=user_input)
@@ -95,15 +110,15 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:
-        self._reauth_entry_data = dict(entry_data)
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
+        entry = self._get_reauth_entry()
         if user_input is not None:
-            merged = {**self._reauth_entry_data, **user_input}
+            merged = {**entry.data, **user_input}
             try:
                 await _async_probe(
                     merged[CONF_HOST], merged[CONF_USERNAME], merged[CONF_PASSWORD]
@@ -113,24 +128,51 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
             except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
                 errors["base"] = "cannot_connect"
             except Exception:  # noqa: BLE001
-                _log = __import__("logging").getLogger(__name__)
-                _log.exception("Unexpected error during RUCKUS WIPS reauth probe")
+                _LOGGER.exception("Unexpected error during RUCKUS WIPS reauth probe")
                 errors["base"] = "cannot_connect"
             else:
-                entry = self._get_reauth_entry()
                 return self.async_update_reload_and_abort(entry, data=merged)
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_USERNAME): str,
-                    vol.Required(CONF_PASSWORD): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.PASSWORD
-                        )
-                    ),
-                }
+            data_schema=CREDENTIALS_SCHEMA,
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Let the user change host/credentials without losing the entry."""
+        errors: dict[str, str] = {}
+        entry = self._get_reconfigure_entry()
+        if user_input is not None:
+            try:
+                system = await _async_probe(
+                    user_input[CONF_HOST],
+                    user_input[CONF_USERNAME],
+                    user_input[CONF_PASSWORD],
+                )
+            except AuthenticationError:
+                errors["base"] = "invalid_auth"
+            except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error during RUCKUS WIPS reconfigure probe")
+                errors["base"] = "cannot_connect"
+            else:
+                serial = _extract_serial(system)
+                if serial:
+                    # Make sure the user hasn't pointed us at a different
+                    # controller — that would mean a brand-new entry, not
+                    # a reconfigure of this one.
+                    await self.async_set_unique_id(serial)
+                    self._abort_if_unique_id_mismatch(reason="wrong_controller")
+                return self.async_update_reload_and_abort(entry, data=user_input)
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                USER_SCHEMA, dict(entry.data)
             ),
             errors=errors,
         )
@@ -141,8 +183,14 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
         return RuckusWipsOptionsFlow()
 
 
-class RuckusWipsOptionsFlow(OptionsFlow):
-    """Options for poll cadence, RSSI filter, and the advanced unblock toggle."""
+class RuckusWipsOptionsFlow(OptionsFlowWithReload):
+    """Options for poll cadence, RSSI filter, and the advanced unblock toggle.
+
+    Subclassing ``OptionsFlowWithReload`` means HA reloads the entry when
+    options change — no need for a manual update listener in ``__init__``.
+    (Combining both would trigger a double-reload / race condition that
+    HA 2026.6 deprecated and 2026.12 will error on.)
+    """
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None

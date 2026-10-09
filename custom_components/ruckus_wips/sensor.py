@@ -11,12 +11,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import RuckusWipsConfigEntry
 from .const import DOMAIN
-from .coordinator import RuckusWipsCoordinator, RuckusWipsSnapshot
+from .coordinator import Rogue, RuckusWipsCoordinator, RuckusWipsSnapshot
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -76,8 +77,12 @@ class RuckusWipsSensor(CoordinatorEntity[RuckusWipsCoordinator], SensorEntity):
     ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
+        self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
-        self._attr_device_info = _device_info(entry, coordinator)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return _device_info(self._entry, self.coordinator)
 
     @property
     def native_value(self) -> int | None:
@@ -98,7 +103,7 @@ class RuckusWipsSensor(CoordinatorEntity[RuckusWipsCoordinator], SensorEntity):
         return {}
 
 
-def _rogue_attrs(rogue) -> dict:
+def _rogue_attrs(rogue: Rogue) -> dict:
     return {
         "bssid": rogue.bssid,
         "ssid": rogue.ssid,
@@ -114,19 +119,24 @@ def _rogue_attrs(rogue) -> dict:
     }
 
 
-def _device_info(entry: RuckusWipsConfigEntry, coordinator: RuckusWipsCoordinator) -> dict:
-    sysinfo = ((coordinator.data.system if coordinator.data else {}) or {}).get(
-        "sysinfo", {}
+def _device_info(
+    entry: RuckusWipsConfigEntry, coordinator: RuckusWipsCoordinator
+) -> DeviceInfo:
+    """Build a DeviceInfo that re-reads the latest system snapshot each call.
+
+    The coordinator refreshes system_info every N polls, so firmware
+    upgrades propagate into the HA device page without a restart as long
+    as callers evaluate this lazily (hence @property on the entities).
+    """
+    system = (coordinator.data.system if coordinator.data else {}) or {}
+    sysinfo = system.get("sysinfo") or {}
+    identity = system.get("identity") or {}
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.unique_id or entry.entry_id)},
+        manufacturer="RUCKUS",
+        name=identity.get("name") or entry.title,
+        model=sysinfo.get("display-model") or sysinfo.get("model") or "Unleashed",
+        sw_version=sysinfo.get("version"),
+        serial_number=sysinfo.get("serial"),
+        configuration_url=f"https://{entry.data.get('host')}",
     )
-    identity = ((coordinator.data.system if coordinator.data else {}) or {}).get(
-        "identity", {}
-    )
-    return {
-        "identifiers": {(DOMAIN, entry.unique_id or entry.entry_id)},
-        "manufacturer": "RUCKUS",
-        "name": identity.get("name") or entry.title,
-        "model": sysinfo.get("display-model") or sysinfo.get("model") or "Unleashed",
-        "sw_version": sysinfo.get("version"),
-        "serial_number": sysinfo.get("serial"),
-        "configuration_url": f"https://{entry.data.get('host')}",
-    }

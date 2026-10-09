@@ -8,6 +8,6 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/raphael1688dev/RUCKUS-WIPS/issues",
   "requirements": ["aioruckus>=0.42,<1.0"],
-  "version": "20260601r1",
-  "homeassistant": "2026.5.0"
+  "version": "20261009r0",
+  "homeassistant": "2026.10.0"
 }

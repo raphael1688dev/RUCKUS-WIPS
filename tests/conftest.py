@@ -40,6 +40,18 @@ _ha_helpers_dr = _make_module("homeassistant.helpers.device_registry")
 _ha_helpers_uc = _make_module("homeassistant.helpers.update_coordinator")
 _ha_helpers_selector = _make_module("homeassistant.helpers.selector")
 _ha_helpers_ep = _make_module("homeassistant.helpers.entity_platform")
+_ha_helpers_typing = _make_module("homeassistant.helpers.typing")
+
+# Attach submodules as attributes so `homeassistant.helpers` resolves properly
+_ha.helpers = _ha_helpers
+_ha_helpers.config_validation = _ha_helpers_cv
+_ha_helpers.device_registry = _ha_helpers_dr
+_ha_helpers.update_coordinator = _ha_helpers_uc
+_ha_helpers.selector = _ha_helpers_selector
+_ha_helpers.entity_platform = _ha_helpers_ep
+_ha_helpers.typing = _ha_helpers_typing
+
+_ha_helpers_typing.ConfigType = dict
 _ha_components = _make_module("homeassistant.components")
 _ha_components_sensor = _make_module("homeassistant.components.sensor")
 _ha_components_event = _make_module("homeassistant.components.event")
@@ -139,10 +151,23 @@ class OptionsFlow:
     pass
 
 
+class OptionsFlowWithReload(OptionsFlow):
+    pass
+
+
+class _ConfigEntryState:
+    LOADED = "loaded"
+    NOT_LOADED = "not_loaded"
+    SETUP_ERROR = "setup_error"
+    SETUP_RETRY = "setup_retry"
+
+
 _ha_config_entries.ConfigEntry = ConfigEntry
 _ha_config_entries.ConfigFlow = ConfigFlow
 _ha_config_entries.ConfigFlowResult = ConfigFlowResult
 _ha_config_entries.OptionsFlow = OptionsFlow
+_ha_config_entries.OptionsFlowWithReload = OptionsFlowWithReload
+_ha_config_entries.ConfigEntryState = _ConfigEntryState
 
 
 # --- helpers ---
@@ -163,6 +188,14 @@ def _async_get(_hass):  # noqa: D401
 
 
 _ha_helpers_dr.async_get = _async_get
+
+
+class DeviceInfo(dict):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+_ha_helpers_dr.DeviceInfo = DeviceInfo
 
 
 class DataUpdateCoordinator:
