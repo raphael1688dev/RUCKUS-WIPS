@@ -2,10 +2,10 @@
 name = "ruckus-wips"
 version = "0.0.0"  # not packaged for PyPI; the real version is in manifest.json
 description = "RUCKUS WIPS Home Assistant integration (HACS)"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py314"
 line-length = 100
 src = ["custom_components"]
 
@@ -32,7 +32,7 @@ ignore = [
 quote-style = "double"
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 ignore_missing_imports = true  # HA / aioruckus types vary across versions
 warn_unused_ignores = true
 warn_redundant_casts = true
@@ -41,4 +41,5 @@ files = ["custom_components/ruckus_wips"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]

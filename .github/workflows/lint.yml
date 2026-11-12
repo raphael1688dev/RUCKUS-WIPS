@@ -8,10 +8,10 @@ jobs:
   ruff:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - run: pip install ruff
       - run: ruff check .
       - run: ruff format --check .
@@ -19,28 +19,31 @@ jobs:
   mypy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - run: pip install mypy aiohttp voluptuous
       - run: mypy custom_components/ruckus_wips || true  # advisory until tests stabilize
 
   translations:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - run: python3 scripts/check_translations.py
 
   pytest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - run: pip install -r requirements-test.txt aiohttp
       - run: pytest tests/ -v
+      # conftest stubs HA, so also import every module against the real HA
+      # package to catch upstream renames/removals of names we depend on.
+      - run: python -c "import importlib; [importlib.import_module(f'custom_components.ruckus_wips{m}') for m in ('', '.const', '.coordinator', '.config_flow', '.sensor', '.event', '.logbook', '.services')]"

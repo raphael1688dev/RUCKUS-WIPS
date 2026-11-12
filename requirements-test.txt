@@ -5,5 +5,6 @@ pytest>=8.0
 pytest-asyncio>=0.23
 # Used by services.py at import time:
 voluptuous>=0.13
-# Stub for homeassistant.exceptions used by test imports:
-homeassistant>=2026.5.0
+# Real HA, for the CI import smoke check (pytest itself uses conftest stubs).
+# HA >= 2026.3 requires Python >= 3.14.2.
+homeassistant>=2026.11.0
