@@ -5,11 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from homeassistant.components.sensor import (
-    SensorEntity,
-    SensorEntityDescription,
-    SensorStateClass,
-)
+from homeassistant.components.sensor import SensorEntity, SensorEntityDescription, SensorStateClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -58,9 +54,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data.coordinator
-    async_add_entities(
-        RuckusWipsSensor(coordinator, entry, desc) for desc in SENSORS
-    )
+    async_add_entities(RuckusWipsSensor(coordinator, entry, desc) for desc in SENSORS)
 
 
 class RuckusWipsSensor(CoordinatorEntity[RuckusWipsCoordinator], SensorEntity):
@@ -119,9 +113,7 @@ def _rogue_attrs(rogue: Rogue) -> dict:
     }
 
 
-def _device_info(
-    entry: RuckusWipsConfigEntry, coordinator: RuckusWipsCoordinator
-) -> DeviceInfo:
+def _device_info(entry: RuckusWipsConfigEntry, coordinator: RuckusWipsCoordinator) -> DeviceInfo:
     """Build a DeviceInfo that re-reads the latest system snapshot each call.
 
     The coordinator refreshes system_info every N polls, so firmware

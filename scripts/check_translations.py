@@ -13,8 +13,8 @@ Usage:
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 DOMAIN_DIR = ROOT / "custom_components" / "ruckus_wips"

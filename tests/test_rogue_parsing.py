@@ -15,7 +15,6 @@ import pytest
 
 from ruckus_wips.coordinator import Rogue, _pick_strongest_detection
 
-
 # ---- _pick_strongest_detection -----------------------------------------
 
 
@@ -123,15 +122,18 @@ def test_rogue_blocked_false_when_attribute_absent() -> None:
     assert rogue.blocked is False
 
 
-@pytest.mark.parametrize("blocked_str,expected", [
-    ("true", True),
-    ("True", True),
-    ("TRUE", True),
-    ("false", False),
-    ("False", False),
-    ("", False),
-    ("anything-else", False),
-])
+@pytest.mark.parametrize(
+    "blocked_str,expected",
+    [
+        ("true", True),
+        ("True", True),
+        ("TRUE", True),
+        ("false", False),
+        ("False", False),
+        ("", False),
+        ("anything-else", False),
+    ],
+)
 def test_rogue_blocked_is_case_insensitive_truthy_check(blocked_str: str, expected: bool) -> None:
     record = _example_record_single_detection()
     record["blocked"] = blocked_str

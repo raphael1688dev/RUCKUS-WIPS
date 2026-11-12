@@ -26,7 +26,7 @@ class RuckusWipsRogueEvent(EventEntity):
 
     _attr_has_entity_name = True
     _attr_translation_key = "new_rogue"
-    _attr_event_types = [EVENT_NEW_ROGUE]
+    _attr_event_types = [EVENT_NEW_ROGUE]  # noqa: RUF012 — HA entity _attr_* convention
     # No device_class — none of HA's built-in event device classes fit
     # "rogue AP detected" semantically. DOORBELL specifically requires a
     # 'ring' event type since HA 2026.5; we'd hit a deprecation warning.
@@ -57,9 +57,7 @@ class RuckusWipsRogueEvent(EventEntity):
         )
 
     async def async_added_to_hass(self) -> None:
-        self.async_on_remove(
-            self._coordinator.async_add_new_rogue_listener(self._handle_new_rogue)
-        )
+        self.async_on_remove(self._coordinator.async_add_new_rogue_listener(self._handle_new_rogue))
 
     @callback
     def _handle_new_rogue(self, rogue: Rogue) -> None:

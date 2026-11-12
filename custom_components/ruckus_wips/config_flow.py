@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Mapping
 import logging
 from typing import Any
@@ -77,9 +76,7 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -90,9 +87,9 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             except AuthenticationError:
                 errors["base"] = "invalid_auth"
-            except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
+            except TimeoutError, aiohttp.ClientError, ConnectionError:
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001 — log + surface a generic error
+            except Exception:
                 _LOGGER.exception("Unexpected error during RUCKUS WIPS setup probe")
                 errors["base"] = "cannot_connect"
             else:
@@ -103,13 +100,9 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
                 name = (system.get("identity") or {}).get("name") or "RUCKUS WIPS"
                 return self.async_create_entry(title=name, data=user_input)
 
-        return self.async_show_form(
-            step_id="user", data_schema=USER_SCHEMA, errors=errors
-        )
+        return self.async_show_form(step_id="user", data_schema=USER_SCHEMA, errors=errors)
 
-    async def async_step_reauth(
-        self, entry_data: Mapping[str, Any]
-    ) -> ConfigFlowResult:
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
@@ -120,14 +113,12 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             merged = {**entry.data, **user_input}
             try:
-                await _async_probe(
-                    merged[CONF_HOST], merged[CONF_USERNAME], merged[CONF_PASSWORD]
-                )
+                await _async_probe(merged[CONF_HOST], merged[CONF_USERNAME], merged[CONF_PASSWORD])
             except AuthenticationError:
                 errors["base"] = "invalid_auth"
-            except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
+            except TimeoutError, aiohttp.ClientError, ConnectionError:
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("Unexpected error during RUCKUS WIPS reauth probe")
                 errors["base"] = "cannot_connect"
             else:
@@ -154,9 +145,9 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             except AuthenticationError:
                 errors["base"] = "invalid_auth"
-            except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError):
+            except TimeoutError, aiohttp.ClientError, ConnectionError:
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("Unexpected error during RUCKUS WIPS reconfigure probe")
                 errors["base"] = "cannot_connect"
             else:
@@ -171,9 +162,7 @@ class RuckusWipsConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=self.add_suggested_values_to_schema(
-                USER_SCHEMA, dict(entry.data)
-            ),
+            data_schema=self.add_suggested_values_to_schema(USER_SCHEMA, dict(entry.data)),
             errors=errors,
         )
 
@@ -192,9 +181,7 @@ class RuckusWipsOptionsFlow(OptionsFlowWithReload):
     HA 2026.6 deprecated and 2026.12 will error on.)
     """
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 

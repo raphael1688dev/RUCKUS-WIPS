@@ -12,9 +12,9 @@ HA harness, layer that suite alongside these — don't replace.
 
 from __future__ import annotations
 
+from pathlib import Path
 import sys
 import types
-from pathlib import Path
 
 # -- Stub the homeassistant modules our integration imports at top level --
 #
@@ -73,11 +73,11 @@ _ha_const.Platform = _Platform
 
 
 # --- core ---
-class HomeAssistant:  # noqa: D401
+class HomeAssistant:
     """Stub of homeassistant.core.HomeAssistant."""
 
 
-def callback(fn):  # noqa: D401
+def callback(fn):
     """Pass-through decorator."""
     return fn
 
@@ -116,7 +116,9 @@ class ConfigEntryNotReady(HomeAssistantError):
 
 
 class ServiceValidationError(HomeAssistantError):
-    def __init__(self, *args, translation_domain=None, translation_key=None, translation_placeholders=None):
+    def __init__(
+        self, *args, translation_domain=None, translation_key=None, translation_placeholders=None
+    ):
         super().__init__(*args)
         self.translation_domain = translation_domain
         self.translation_key = translation_key
@@ -130,7 +132,7 @@ _ha_exceptions.ServiceValidationError = ServiceValidationError
 
 
 # --- config_entries ---
-class ConfigEntry:  # noqa: D401
+class ConfigEntry:
     """Stub."""
 
     def __class_getitem__(cls, item):
@@ -138,7 +140,7 @@ class ConfigEntry:  # noqa: D401
 
 
 class ConfigFlow:
-    def __init_subclass__(cls, **kwargs):  # noqa: D401
+    def __init_subclass__(cls, **kwargs):
         # Tolerate `domain=...` kwarg
         return None
 
@@ -178,8 +180,9 @@ def _identity(x):
 _ha_helpers_cv.string = _identity
 
 
-def _async_get(_hass):  # noqa: D401
+def _async_get(_hass):
     """Return a dummy device registry."""
+
     class _Reg:
         def async_get(self, _id):
             return None

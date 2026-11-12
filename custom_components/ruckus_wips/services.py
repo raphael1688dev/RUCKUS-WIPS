@@ -147,7 +147,9 @@ def _resolve_entry(hass: HomeAssistant, call: ServiceCall) -> RuckusWipsConfigEn
     return loaded[0]
 
 
-def _resolve_session(hass: HomeAssistant, call: ServiceCall) -> tuple[RuckusWipsConfigEntry, AjaxSession]:
+def _resolve_session(
+    hass: HomeAssistant, call: ServiceCall
+) -> tuple[RuckusWipsConfigEntry, AjaxSession]:
     entry = _resolve_entry(hass, call)
     return entry, entry.runtime_data.session
 

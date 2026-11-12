@@ -6,10 +6,9 @@ not only in CI.
 
 from __future__ import annotations
 
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,6 +20,4 @@ def test_strings_and_translations_en_in_sync() -> None:
         text=True,
         check=False,
     )
-    assert result.returncode == 0, (
-        f"Translation drift detected:\n{result.stdout}{result.stderr}"
-    )
+    assert result.returncode == 0, f"Translation drift detected:\n{result.stdout}{result.stderr}"

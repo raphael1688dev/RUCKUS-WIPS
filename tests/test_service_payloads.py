@@ -8,8 +8,6 @@ the symmetry, these tests catch the regression.
 
 from __future__ import annotations
 
-import re
-
 import pytest
 
 from ruckus_wips.services import _MAC_RE, _normalize
@@ -34,25 +32,31 @@ def _build_unmark_payload(bssid: str) -> str:
 # ---- normalization -----------------------------------------------------
 
 
-@pytest.mark.parametrize("raw,expected", [
-    ("aa:bb:cc:dd:ee:ff", "aa:bb:cc:dd:ee:ff"),
-    ("AA:BB:CC:DD:EE:FF", "aa:bb:cc:dd:ee:ff"),
-    ("aa-bb-cc-dd-ee-ff", "aa:bb:cc:dd:ee:ff"),
-    ("  aa:bb:cc:dd:ee:ff  ", "aa:bb:cc:dd:ee:ff"),
-    ("Aa:bB:cC:dD:eE:fF", "aa:bb:cc:dd:ee:ff"),
-])
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("aa:bb:cc:dd:ee:ff", "aa:bb:cc:dd:ee:ff"),
+        ("AA:BB:CC:DD:EE:FF", "aa:bb:cc:dd:ee:ff"),
+        ("aa-bb-cc-dd-ee-ff", "aa:bb:cc:dd:ee:ff"),
+        ("  aa:bb:cc:dd:ee:ff  ", "aa:bb:cc:dd:ee:ff"),
+        ("Aa:bB:cC:dD:eE:fF", "aa:bb:cc:dd:ee:ff"),
+    ],
+)
 def test_normalize_accepts_valid_macs(raw: str, expected: str) -> None:
     assert _normalize(raw) == expected
 
 
-@pytest.mark.parametrize("garbage", [
-    "",
-    "not-a-mac",
-    "aa:bb:cc:dd:ee",       # too short
-    "aa:bb:cc:dd:ee:ff:00",  # too long
-    "zz:bb:cc:dd:ee:ff",    # invalid hex
-    "aabbccddeeff",          # no separators
-])
+@pytest.mark.parametrize(
+    "garbage",
+    [
+        "",
+        "not-a-mac",
+        "aa:bb:cc:dd:ee",  # too short
+        "aa:bb:cc:dd:ee:ff:00",  # too long
+        "zz:bb:cc:dd:ee:ff",  # invalid hex
+        "aabbccddeeff",  # no separators
+    ],
+)
 def test_normalize_rejects_garbage(garbage: str) -> None:
     from homeassistant.exceptions import ServiceValidationError
 

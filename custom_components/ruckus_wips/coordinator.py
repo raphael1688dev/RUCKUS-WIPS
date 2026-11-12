@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, field
 from datetime import timedelta
 import logging
@@ -96,13 +95,15 @@ def _pick_strongest_detection(detection: Any) -> dict[str, Any]:
     if isinstance(detection, dict):
         return detection
     if isinstance(detection, list) and detection:
+
         def rssi_of(d: Any) -> int:
             if not isinstance(d, dict):
                 return -1
             try:
                 return int(d.get("rssi") or 0)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 return 0
+
         best = max(detection, key=rssi_of)
         return best if isinstance(best, dict) else {}
     return {}
@@ -177,8 +178,7 @@ class RuckusWipsCoordinator(DataUpdateCoordinator[RuckusWipsSnapshot]):
         api = self.session.api
         self._poll_count += 1
         refresh_system = (
-            self._system is None
-            or self._poll_count % SYSTEM_INFO_REFRESH_EVERY_N_POLLS == 0
+            self._system is None or self._poll_count % SYSTEM_INFO_REFRESH_EVERY_N_POLLS == 0
         )
         try:
             active_raw = await api.get_active_rogues()
@@ -187,7 +187,7 @@ class RuckusWipsCoordinator(DataUpdateCoordinator[RuckusWipsSnapshot]):
                 self._system = await api.get_system_info()
         except AuthenticationError as err:
             raise ConfigEntryAuthFailed from err
-        except (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError) as err:
+        except (TimeoutError, aiohttp.ClientError, ConnectionError) as err:
             raise UpdateFailed(f"Network error talking to Unleashed: {err}") from err
         except (KeyError, ValueError, TypeError) as err:
             raise UpdateFailed(f"Unexpected response from Unleashed: {err}") from err

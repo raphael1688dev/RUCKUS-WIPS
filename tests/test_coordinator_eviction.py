@@ -12,8 +12,6 @@ a TTL-based eviction; these tests pin the contract:
 
 from __future__ import annotations
 
-import time
-
 from ruckus_wips.coordinator import SEEN_BSSID_TTL_SECONDS
 
 

@@ -25,6 +25,13 @@ ignore = [
     "E501",  # line too long — formatter handles long strings/URLs
 ]
 
+[tool.ruff.lint.isort]
+# Match Home Assistant core's import style.
+force-sort-within-sections = true
+known-first-party = ["homeassistant"]
+combine-as-imports = true
+split-on-trailing-comma = false
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["BLE001"]
 
