@@ -1,13 +1,15 @@
 mark_malicious:
-  target:
-    device:
-      integration: ruckus_wips
   fields:
     bssid:
       required: true
       example: "aa:bb:cc:dd:ee:ff"
       selector:
         text:
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: ruckus_wips
     entry_id:
       required: false
       example: "01J8B3FA9X1QGZ..."
@@ -16,15 +18,17 @@ mark_malicious:
           integration: ruckus_wips
 
 unmark_malicious:
-  target:
-    device:
-      integration: ruckus_wips
   fields:
     bssid:
       required: true
       example: "aa:bb:cc:dd:ee:ff"
       selector:
         text:
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: ruckus_wips
     entry_id:
       required: false
       example: "01J8B3FA9X1QGZ..."

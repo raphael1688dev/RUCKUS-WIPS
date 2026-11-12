@@ -88,6 +88,10 @@
           "name": "BSSID",
           "description": "MAC address of the rogue access point."
         },
+        "device_id": {
+          "name": "Device",
+          "description": "The RUCKUS WIPS hub device of the controller to target (alternative to Controller)."
+        },
         "entry_id": {
           "name": "Controller",
           "description": "Which configured Unleashed controller to target (required when more than one is set up)."
@@ -101,6 +105,10 @@
         "bssid": {
           "name": "BSSID",
           "description": "MAC address of the rogue access point."
+        },
+        "device_id": {
+          "name": "Device",
+          "description": "The RUCKUS WIPS hub device of the controller to target (alternative to Controller)."
         },
         "entry_id": {
           "name": "Controller",

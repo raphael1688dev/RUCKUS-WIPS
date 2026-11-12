@@ -5,6 +5,39 @@ All notable changes to this project are documented in this file.
 This project uses [Calendar Versioning](https://calver.org/) — `YYYYMMDDr<N>`.
 Same-day releases increment `r`; new-day resets to `r0`.
 
+## [20261112r0] - 2026-11-12
+
+### Fixed
+- The minimum Home Assistant version is now declared in `hacs.json`
+  (`2026.11.0`), which is the field HACS reads. It was still `2026.5.0`
+  there; the `homeassistant` key previously bumped in `manifest.json` is
+  not a valid manifest key and has been removed.
+- `services.yaml` no longer uses a device filter on `target` (rejected by
+  hassfest). Both services now take an optional `device_id` field with a
+  device selector. Picking a device through the old target picker passed
+  `device_id` as a list, which the service schema rejected.
+
+### Changed
+- CI and tooling moved to Python 3.14 (required by HA since 2026.3);
+  the pytest job now also imports every module against the real HA
+  package. Ruff lint/format debt cleared (no behavior change).
+- Added the MIT `LICENSE` file the README already referred to.
+
+## [20261105r0] - 2026-11-05
+
+### Changed
+- Verified on Home Assistant 2026.11.0; no code changes.
+
+## [20261009r0] - 2026-10-09
+
+### Changed
+- Home Assistant 2026.10 compliance pass: services registered in
+  `async_setup`, `OptionsFlowWithReload`, `DataUpdateCoordinator`
+  receives `config_entry`, `device.config_entry_id`, lazy `DeviceInfo`.
+
+### Added
+- Reconfigure flow to change host/credentials without removing the entry.
+
 ## [20260601r1] - 2026-06-01
 
 Big tech-debt paydown pass. All P0 + P1 + most P2 items from

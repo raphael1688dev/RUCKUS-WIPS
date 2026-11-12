@@ -65,6 +65,7 @@
       "description": "通知 Unleashed 對指定 BSSID 廣播 deauth,阻止客戶端連線。",
       "fields": {
         "bssid": { "name": "BSSID", "description": "Rogue AP 的 MAC 位址。" },
+        "device_id": { "name": "裝置", "description": "要操作的 RUCKUS WIPS 控制器裝置(可替代「控制器」欄位)。" },
         "entry_id": { "name": "控制器", "description": "要操作的 Unleashed 控制器(僅在設定多台時需要)。" }
       }
     },
@@ -73,6 +74,7 @@
       "description": "撤銷先前的封鎖,停止對該 BSSID 的 deauth。",
       "fields": {
         "bssid": { "name": "BSSID", "description": "Rogue AP 的 MAC 位址。" },
+        "device_id": { "name": "裝置", "description": "要操作的 RUCKUS WIPS 控制器裝置(可替代「控制器」欄位)。" },
         "entry_id": { "name": "控制器", "description": "要操作的 Unleashed 控制器(僅在設定多台時需要)。" }
       }
     }

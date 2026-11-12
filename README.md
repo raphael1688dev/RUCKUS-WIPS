@@ -5,7 +5,7 @@ rogue AP detection (WIPS) in Home Assistant and lets you mark rogues as
 malicious from automations.
 
 Tested with R720 on Unleashed `200.15.6.212`. Requires Home Assistant
-`2026.5.0` or newer.
+`2026.11.0` or newer.
 
 > The official Home Assistant **Ruckus** integration only provides presence
 > detection (`device_tracker`). This integration adds the WIPS surface that the

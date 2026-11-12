@@ -4,7 +4,7 @@ Surfaces **RUCKUS Unleashed** rogue AP detection (WIPS) in Home Assistant
 and lets you mark rogues as malicious from automations.
 
 Tested with R720 on Unleashed `200.15.6.212`. Requires Home Assistant
-`2026.5.0` or newer.
+`2026.11.0` or newer.
 
 ## What you get
 
