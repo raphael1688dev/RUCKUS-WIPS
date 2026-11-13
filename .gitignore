@@ -17,7 +17,7 @@ __pycache__/
 *.whl
 
 # Internal-only — do NOT push to the public repo
-CLAUDE.md
+CLAUDE*.md
 docs/
 
 # Dev probe scripts — they take a live admin password as argv
