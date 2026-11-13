@@ -1,9 +1,11 @@
 """Tests for the AJAX payloads sent by mark_malicious / unmark_malicious.
 
-These payloads were captured from a live R720 (Unleashed 200.15.6.212) and
-are asymmetric (`mac=` vs `rogue=`, `block` vs `unblockrogue`) — the
-asymmetry is real and must be preserved. If a future refactor "cleans up"
-the symmetry, these tests catch the regression.
+These mirror the strings in services.py: `blockrogue` / `unblockrogue`, both
+with kebab-case `check-ability` and `rogue=`, as the Unleashed web UI sends
+them (verified on a live R720, Unleashed 200.15.6.212). Unleashed is strict
+about these attribute names (`rogue=` vs `mac=`, `check-ability` vs
+`checkAbility`), so any change must be re-verified against a live controller;
+these tests catch an accidental one.
 """
 
 from __future__ import annotations
@@ -75,7 +77,7 @@ def test_mac_regex_matches_canonical() -> None:
 
 def test_mark_payload_uses_blockrogue_xcmd_with_rogue_attr() -> None:
     payload = _build_mark_payload("aa:bb:cc:dd:ee:ff")
-    # Asymmetry — block side uses xcmd='blockrogue' AND rogue='...'
+    # Mark side: xcmd='blockrogue', rogue='...', kebab-case check-ability
     assert "xcmd='blockrogue'" in payload
     assert "cmd='blockrogue'" in payload
     assert "tag='rogue'" in payload
