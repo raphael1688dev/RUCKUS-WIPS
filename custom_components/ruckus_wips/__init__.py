@@ -60,7 +60,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: RuckusWipsConfigEntry) -
         raise ConfigEntryNotReady(f"Cannot connect to Unleashed: {err}") from err
 
     coordinator = RuckusWipsCoordinator(hass, entry, session)
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception:
+        # HA retries setup; without this every retry leaks a logged-in
+        # session, and Unleashed allows only one admin session by default.
+        await session.close()
+        raise
 
     entry.runtime_data = RuckusWipsData(session=session, coordinator=coordinator)
 

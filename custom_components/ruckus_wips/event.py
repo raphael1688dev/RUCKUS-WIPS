@@ -43,7 +43,7 @@ class RuckusWipsRogueEvent(EventEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Re-read system snapshot each call so firmware upgrades surface."""
+        """Hub DeviceInfo; later firmware changes are synced by the coordinator."""
         system = (self._coordinator.data.system if self._coordinator.data else {}) or {}
         sysinfo = system.get("sysinfo") or {}
         identity = system.get("identity") or {}

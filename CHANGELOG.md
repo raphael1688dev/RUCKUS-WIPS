@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 This project uses [Calendar Versioning](https://calver.org/) — `YYYYMMDDr<N>`.
 Same-day releases increment `r`; new-day resets to `r0`.
 
+## [20261113r0] - 2026-11-13
+
+Fixes from a code review against Home Assistant 2026.11.1, verified by
+running the integration on a real HA 2026.11.1 core.
+
+### Fixed
+- A logged-in Unleashed session was leaked whenever setup failed after
+  login (for example the controller dropping during the first refresh).
+  HA retries setup, so each retry leaked another session; Unleashed
+  allows only one admin session by default.
+- Controller firmware upgrades now update the device page. HA reads an
+  entity's device info only when the entity is first added, so the
+  coordinator now pushes `sw_version` changes to the device registry.
+- A connection error while fetching system info during setup no longer
+  logs an "Unexpected error" traceback on every retry.
+
+### Changed
+- The `rogues` attribute lists on the three count sensors are no longer
+  written to the recorder database. They stay available on the live state
+  for dashboards and templates. Large lists could exceed the recorder's
+  16 KB attribute limit and bloat the database.
+
 ## [20261112r0] - 2026-11-12
 
 ### Fixed

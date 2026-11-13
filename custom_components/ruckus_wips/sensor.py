@@ -61,6 +61,9 @@ class RuckusWipsSensor(CoordinatorEntity[RuckusWipsCoordinator], SensorEntity):
     """Aggregate counters about the rogue AP state."""
 
     _attr_has_entity_name = True
+    # Full rogue lists would bloat the recorder DB and can exceed its 16 KB
+    # attribute limit; they stay live on the state for UI and templates.
+    _unrecorded_attributes = frozenset({"rogues"})
     entity_description: RuckusWipsSensorDescription
 
     def __init__(
@@ -114,12 +117,7 @@ def _rogue_attrs(rogue: Rogue) -> dict:
 
 
 def _device_info(entry: RuckusWipsConfigEntry, coordinator: RuckusWipsCoordinator) -> DeviceInfo:
-    """Build a DeviceInfo that re-reads the latest system snapshot each call.
-
-    The coordinator refreshes system_info every N polls, so firmware
-    upgrades propagate into the HA device page without a restart as long
-    as callers evaluate this lazily (hence @property on the entities).
-    """
+    """Build the hub DeviceInfo; later firmware changes are synced by the coordinator."""
     system = (coordinator.data.system if coordinator.data else {}) or {}
     sysinfo = system.get("sysinfo") or {}
     identity = system.get("identity") or {}

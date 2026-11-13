@@ -15,6 +15,7 @@ from aioruckus.exceptions import AuthenticationError
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
@@ -173,6 +174,27 @@ class RuckusWipsCoordinator(DataUpdateCoordinator[RuckusWipsSnapshot]):
             self._system = await self.session.api.get_system_info()
         except AuthenticationError as err:
             raise ConfigEntryAuthFailed from err
+        # aioruckus raises builtin ConnectionError, which HA's setup wrapper
+        # would otherwise log as an unexpected error with a traceback.
+        except (TimeoutError, aiohttp.ClientError, ConnectionError) as err:
+            raise UpdateFailed(f"Network error talking to Unleashed: {err}") from err
+        except (KeyError, ValueError, TypeError) as err:
+            raise UpdateFailed(f"Unexpected response from Unleashed: {err}") from err
+
+    @callback
+    def _async_sync_device_registry(self) -> None:
+        """Push firmware changes to the hub device in the device registry."""
+        # HA reads an entity's device_info only when the entity is first
+        # added, so later system_info refreshes must update the registry.
+        version = ((self._system or {}).get("sysinfo") or {}).get("version")
+        if not version:
+            return
+        dev_reg = dr.async_get(self.hass)
+        device = dev_reg.async_get_device_by_identifier(
+            (DOMAIN, self.entry.unique_id or self.entry.entry_id), self.entry.entry_id
+        )
+        if device is not None and device.sw_version != version:
+            dev_reg.async_update_device(device.id, sw_version=version)
 
     async def _async_update_data(self) -> RuckusWipsSnapshot:
         api = self.session.api
@@ -192,6 +214,8 @@ class RuckusWipsCoordinator(DataUpdateCoordinator[RuckusWipsSnapshot]):
         except (KeyError, ValueError, TypeError) as err:
             raise UpdateFailed(f"Unexpected response from Unleashed: {err}") from err
         system = self._system or {}
+        if refresh_system:
+            self._async_sync_device_registry()
 
         ignore_known = self.entry.options.get(CONF_IGNORE_KNOWN, DEFAULT_IGNORE_KNOWN)
         rssi_threshold = self.entry.options.get(CONF_RSSI_THRESHOLD, DEFAULT_RSSI_THRESHOLD)

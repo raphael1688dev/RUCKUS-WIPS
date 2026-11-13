@@ -12,6 +12,7 @@ HA harness, layer that suite alongside these — don't replace.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 import sys
 import types
@@ -263,9 +264,12 @@ class _SensorEntity:
     pass
 
 
+@dataclass(frozen=True, kw_only=True)
 class _SensorEntityDescription:
-    def __init__(self, **kw):
-        self.__dict__.update(kw)
+    key: str
+    translation_key: str | None = None
+    state_class: str | None = None
+    icon: str | None = None
 
 
 class _SensorStateClass:
